@@ -51,17 +51,17 @@ export default class HomeUI extends BaseUI {
 
         if (DataMgr.myData) {
             this.btnClaim0.getComponentInChildren(cc.Label).string = DataMgr.myData.arkSize < DataMgr.StdArkSize ? '进入' : '无法领取';
-            this.btnClaim1.getComponentInChildren(cc.Label).string = DataMgr.myData.arkSize < DataMgr.StdArkSize ? '领取' : DataMgr.myData.arkSize < DataMgr.LargeArkSize ? '进入' : '无法领取';
-            this.btnClaim2.getComponentInChildren(cc.Label).string = DataMgr.myData.arkSize < DataMgr.StdArkSize ? '领取' : DataMgr.myData.arkSize < DataMgr.LargeArkSize ? '无法领取' : '进入';
+            this.btnClaim1.getComponentInChildren(cc.Label).string = DataMgr.myData.arkSize < DataMgr.StdArkSize ? '领取' : '进入';
+            // this.btnClaim2.getComponentInChildren(cc.Label).string = DataMgr.myData.arkSize < DataMgr.StdArkSize ? '领取' : DataMgr.myData.arkSize < DataMgr.LargeArkSize ? '无法领取' : '进入';
             this.btnClaim0.interactable = DataMgr.myData.arkSize < DataMgr.StdArkSize;
-            this.btnClaim1.interactable = DataMgr.myData.arkSize < DataMgr.LargeArkSize;
-            this.btnClaim2.interactable = DataMgr.myData.arkSize < DataMgr.StdArkSize || DataMgr.myData.arkSize >= DataMgr.LargeArkSize;
+            this.btnClaim1.interactable = true;
+            // this.btnClaim2.interactable = DataMgr.myData.arkSize < DataMgr.StdArkSize || DataMgr.myData.arkSize >= DataMgr.LargeArkSize;
             if (DataMgr.myData.nickname) this.lblNickname.string = DataMgr.myData.nickname;
             if (DataMgr.myData.country) this.country = DataMgr.myData.country;
         } else {
             this.btnClaim0.getComponentInChildren(cc.Label).string = '领取';
             this.btnClaim1.getComponentInChildren(cc.Label).string = '领取';
-            this.btnClaim2.getComponentInChildren(cc.Label).string = '领取';
+            // this.btnClaim2.getComponentInChildren(cc.Label).string = '领取';
         }
 
         let self = this;
@@ -87,13 +87,7 @@ export default class HomeUI extends BaseUI {
                     break;
                 }
                 case '1': {
-                    if (DataMgr.myData.arkSize < DataMgr.StdArkSize) {
-                        //领取，调用合约
-                        BlockchainMgr.Instance.claimArk(0);
-                    } else if (DataMgr.myData.arkSize < DataMgr.LargeArkSize) {
-                        //进入
-                        CvsMain.EnterUI(WorldUI);
-                    }
+                    CvsMain.EnterUI(WorldUI);
                     break;
                 }
                 case '2': {
