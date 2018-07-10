@@ -15,14 +15,14 @@ let User = function (jsonStr) {
         this.hull = 1; //完整度
         this.expandCnt = 9;
 
-        let locData = {};
-        locData.speed = 0;
-        locData.lastLocationX = Math.cos(rad) * 5000;
-        locData.lastLocationY = Math.sin(rad) * 5000;
-        locData.destinationX = null;
-        locData.destinationY = null;
-        locData.lastLocationTime = (new Date()).valueOf();
-        this.locationData = locData;
+        let locationData = {};
+        locationData.speed = 0;
+        locationData.lastLocationX = Math.cos(rad) * 5000;
+        locationData.lastLocationY = Math.sin(rad) * 5000;
+        locationData.destinationX = null;
+        locationData.destinationY = null;
+        locationData.lastLocationTime = (new Date()).valueOf();
+        this.locationData = locationData;
 
         this.expandMap = {
             "-1,0": {},
@@ -40,16 +40,7 @@ let User = function (jsonStr) {
             //"-3,2":{id:"ironcoll", lv:2, recoverTime:10302019313, justBuildOrUpgrade: true}
         };
         this.cargoData = {
-            energy: 200,
-            iron: 80,
-            fighter: 0,
-            bomber: 0,
-            defender: 0,
-            laser: 0,
-            waterdrop: 0,
-            starlighter: 0,
         };
-        this.collectingStarIndex = null;
         this.lastCalcTime = (new Date()).valueOf();
     }
 };
@@ -106,25 +97,6 @@ Island.prototype = {
     }
 };
 
-let Star = function (jsonStr) {
-    if (jsonStr) {
-        let obj = JSON.parse(jsonStr);
-        for (let key in obj) {
-            this[key] = obj[key];
-        }
-    } else {
-        this.index = null;
-        this.occupant = "";
-        this.lastMineTime = 0; // 上次开始挖矿的时间
-        this.army = {};
-    }
-};
-Star.prototype = {
-    toString: function () {
-        return JSON.stringify(this);
-    }
-};
-
 let BigNumberDesc = {
     parse: function (jsonText) {
         return new BigNumber(jsonText);
@@ -138,7 +110,7 @@ let GameContract = function () {
     LocalContractStorage.defineProperty(this, "adminAddress");
     LocalContractStorage.defineProperty(this, "totalIslandCnt");
     LocalContractStorage.defineProperty(this, "totalNas", BigNumberDesc);
-    LocalContractStorage.defineProperty(this, "shipSpeed");
+    LocalContractStorage.defineProperty(this, "cityMoveSpeed");
     LocalContractStorage.defineProperty(this, "energyCostPerLyExpand");
     LocalContractStorage.defineProperty(this, "totalStarCnt");
     LocalContractStorage.defineProperty(this, "allUserList", {
@@ -194,7 +166,7 @@ GameContract.prototype = {
     init: function () {
         this.adminAddress = Blockchain.transaction.from;
         this.totalNas = new BigNumber(0);
-        this.shipSpeed = 100;
+        this.cityMoveSpeed = 100;
         this.energyCostPerLyExpand = 0.01;
         this.totalStarCnt = 300;
         this.allUserList = [];
@@ -286,10 +258,10 @@ GameContract.prototype = {
             throw new Error("Parameters INVALID.");
         }
         this._recalcUser(user);
-        let locData = user.locationData;
-        locData.speed = this.shipSpeed;
-        locData.destinationX = destinationX;
-        locData.destinationY = destinationY;
+        let locationData = user.locationData;
+        locationData.speed = this.cityMoveSpeed;
+        locationData.destinationX = destinationX;
+        locationData.destinationY = destinationY;
         let energyCost = this.getSailEnergyCost(user);
         if (user.cargoData.energy < energyCost) {
             throw new Error("User energy NOT enough.");
