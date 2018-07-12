@@ -11,9 +11,8 @@ let User = function (jsonStr) {
         this.nickname = "";
         this.address = "";
         this.country = "";
-        this.state = 0; //0:sailing 1:collecting
         this.hull = 1; //完整度
-        this.expandCnt = 9;
+        this.expandCnt = 0; //默认0
 
         let locationData = {};
         locationData.speed = 0;
@@ -132,6 +131,8 @@ let GameContract = function () {
     LocalContractStorage.defineProperty(this, "cityMoveSpeed");
     LocalContractStorage.defineProperty(this, "energyCostPerLyExpand");
     LocalContractStorage.defineProperty(this, "totalPirateCnt");
+    LocalContractStorage.defineProperty(this, "pirateCargoC0");
+    LocalContractStorage.defineProperty(this, "pirateArmyC0");
     LocalContractStorage.defineProperty(this, "piratePeriodTimestamp");
     LocalContractStorage.defineProperty(this, "allUserList", {
         parse: function (jsonText) {
@@ -189,6 +190,8 @@ GameContract.prototype = {
         this.cityMoveSpeed = 100;
         this.energyCostPerLyExpand = 0.01;
         this.totalPirateCnt = 300;
+        this.pirateCargoC0 = 100;
+        this.pirateArmyC0 = 10;
         this.piratePeriodTimestamp = 0;
         this.allUserList = [];
         // this.allBuildingInfos = {};
@@ -889,25 +892,28 @@ GameContract.prototype = {
         //cargo
         let cargo = {};
         let cargoFactors = {
-            iron: 1,
-            silicon: 0.5,
+            silicon: 1,
+            carbon: 0.7,
+            iron: 0.5,
             chip: 0.05,
+            deuter: 0.0001,
+            floatmod: 0.04,
         }
         for (let key in cargoFactors) {
             let c = (this.APHash1(seed + key));
-            cargo[key] = cargoMainFactor * c * cargoFactors[key];
+            cargo[key] = Math.round(this.pirateCargoC0 * cargoMainFactor * c * cargoFactors[key]);
         }
         pirateInfo.cargo = cargo;
         //army
         let army = {};
         let armyFactors = {
             tank: 1,
-            chopper: 1,
+            chopper: 0.8,
             ship: 0.2,
         }
         for (let key in armyFactors) {
             let c = (this.APHash1(seed + key));
-            army[key] = armyMainFactor * c * cargoFactors[key];
+            army[key] = Math.round(this.pirateArmyC0 * armyMainFactor * c * cargoFactors[key]);
         }
         pirateInfo.army = army;
         return pirateInfo;
