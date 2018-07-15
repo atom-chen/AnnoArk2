@@ -897,12 +897,13 @@ GameContract.prototype = {
             iron: 0.5,
             chip: 0.05,
             deuter: 0.0001,
-            floatmod: 0.04,
+            //floatmod: 0.04,
         }
         for (let key in cargoFactors) {
             let c = (this.APHash1(seed + key));
             cargo[key] = Math.round(this.pirateCargoC0 * cargoMainFactor * c * cargoFactors[key]);
         }
+        cargo.floatmod = cargoMainFactor;
         pirateInfo.cargo = cargo;
         //army
         let army = {};
