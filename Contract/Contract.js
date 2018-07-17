@@ -115,6 +115,33 @@ Pirate.prototype = {
     }
 };
 
+let Nuke = function (jsonStr) {
+    if (jsonStr) {
+        let obj = JSON.parse(jsonStr);
+        for (let key in obj) {
+            this[key] = obj[key];
+        }
+    } else {
+        let locationData = {};
+        locationData.speed = 0;
+        locationData.lastLocationX = Math.cos(rad) * 5000;
+        locationData.lastLocationY = Math.sin(rad) * 5000;
+        locationData.destinationX = null;
+        locationData.destinationY = null;
+        locationData.lastLocationTime = (new Date()).valueOf();
+        this.locationData = locationData;
+
+        this.owner = "";
+        this.alive = true;
+        this.affectedCities = [];
+    }
+};
+Nuke.prototype = {
+    toString: function () {
+        return JSON.stringify(this);
+    }
+};
+
 let BigNumberDesc = {
     parse: function (jsonText) {
         return new BigNumber(jsonText);
@@ -176,6 +203,22 @@ let GameContract = function () {
     LocalContractStorage.defineMapProperty(this, "allPirates", {
         parse: function (jsonText) {
             return new Pirate(jsonText);
+        },
+        stringify: function (obj) {
+            return obj.toString();
+        }
+    });
+    LocalContractStorage.defineProperty(this, "allNukeList", {
+        parse: function (jsonText) {
+            return JSON.parse(jsonText);
+        },
+        stringify: function (obj) {
+            return JSON.stringify(obj);
+        }
+    })
+    LocalContractStorage.defineMapProperty(this, "allNukes", {
+        parse: function (jsonText) {
+            return new Nuke(jsonText);
         },
         stringify: function (obj) {
             return obj.toString();
@@ -423,6 +466,29 @@ GameContract.prototype = {
             "newBuilding": [i, j, buildingId]
         }
     },
+    moveBuilding: function (i, j, newI, newJ) {
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        this._recalcUser(user);
+        let oldIJ = i + ',' + j;
+        let newIJ = newI + ',' + newJ;
+        if (!user.buildingMap[oldIJ]) {
+            throw new Error("moveBuilding Failed. (" + oldIJ + ") has no building.");
+        }
+        if (user.buildingMap[newIJ]) {
+            throw new Error("moveBuilding Failed. (" + newIJ + ") has already had a building.");
+        }
+        user.buildingMap[newIJ] = user.buildingMap[oldIJ];
+        user.buildingMap[oldIJ] = null;
+
+        this.allUsers.set(userAddress, user);
+        return {
+            "success": true,
+        }
+    },
     demolish: function (i, j) {
         let userAddress = Blockchain.transaction.from;
         let user = this.allUsers.get(userAddress);
@@ -518,7 +584,6 @@ GameContract.prototype = {
         }
     },
     //=====PVE
-
     attackPirate: function (pirateIndex, army) {
         let pirateInfo = this.getPirateInfo(pirateIndex);// will refresh this.piratePeriodTimestamp
         let userAddress = Blockchain.transaction.from;
@@ -552,7 +617,7 @@ GameContract.prototype = {
             pirate.alive = true;
         }
         if (pirate.alive) {
-            let res = this._battle(pirate.army.fighter, pirate.army.bomber, pirate.army.laser, army.fighter, army.bomber, pirate.army.laser);
+            let res = this._battle(pirate.army.tank, pirate.army.chopper, pirate.army.ship, army.tank, army.chopper, pirate.army.ship);
             //attacker reduces army
             for (let key in army) {
                 if (user.cargoData[key] < army[key]) {
@@ -561,9 +626,9 @@ GameContract.prototype = {
                 user.cargoData[key] -= army[key];
             }
             let winnerLeftArmy = {};
-            winnerLeftArmy.fighter = res['left'][0];
-            winnerLeftArmy.bomber = res['left'][1];
-            winnerLeftArmy.laser = res['left'][2];
+            winnerLeftArmy.tank = res['left'][0];
+            winnerLeftArmy.chopper = res['left'][1];
+            winnerLeftArmy.ship = res['left'][2];
             if (res["win"]) { // pirate lost
                 pirate.alive = false;
                 //obtain cargos
@@ -592,6 +657,69 @@ GameContract.prototype = {
         }
     },
 
+    //=====PVP
+    attackUserCity: function (enemyAddress, army) {
+        let enemy = this.allUsers.get(enemyAddress);
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        let curTs = (new Date()).valueOf();
+        if (enemy === null) {
+            throw new Error("CANNOT find enemy." + enemyAddress);
+        }
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+
+        this._recalcUser(enemy);
+        this._recalcUser(user);
+
+        //consume army & check
+        for (let key in army) {
+            user.cargoData[key] -= army[key];
+            if (user.cargoData[key] < 0) {
+                throw new Error("Army NOT ENOUGH." + key);
+            }
+        }
+
+        //check distance
+        let enemyLocationData = enemy.locationData;
+        let locationData = user.locationData;
+        let dx = locationData.x - enemyLocationData.x;
+        let dy = locationData.y - enemyLocationData.y;
+        let dist = Math.sqrt(dx * dx + dy + dy);
+        if (dist > 100) {
+            throw new Error("Too far from the enemy." + enemy + ", distance:" + dist);
+        }
+
+        let res = this._battle(enemy.army.tank, enemy.army.chopper, enemy.army.ship, army.tank, army.chopper, army.ship);
+
+        //enemy consume army
+        enemy.army.tank = 0;
+        enemy.army.chopper = 0;
+        enemy.army.ship = 0;
+
+        if (res["win"]) { //敌方防守失败
+            //retrieve army
+            user.army.tank += res['left'][0];
+            user.army.chopper += res['left'][1];
+            user.army.ship += res['left'][2];
+            //TODO：转移物资
+            //TODO：安全区
+            //TODO：方舟受损
+        } else { //我方进攻失败
+            //enemy retrieve army
+            enemy.army.tank += res['left'][0];
+            enemy.army.chopper += res['left'][1];
+            enemy.army.ship += res['left'][2];
+        }
+
+        this.allUsers.set(enemyAddress, enemy);
+        this.allUsers.set(userAddress, user);
+
+        return {
+            "success": res["win"],
+        };
+    },
 
     //=====Diamond Island
     attackIsland: function (islandIndex, army) {
@@ -606,10 +734,10 @@ GameContract.prototype = {
             throw new Error("User NOT FOUND.");
         }
         this._recalcUser(user);
-        let locData = user.locData;
+        let locationData = user.locationData;
         //check distance
-        let dx = locData.x - island.x;
-        let dy = locData.y - island.y;
+        let dx = locationData.x - island.x;
+        let dy = locationData.y - island.y;
         let dist = Math.sqrt(dx * dx + dy + dy);
         if (dist > 100) {
             throw new Error("Too far from the island." + islandIndex + ", distance:" + dist);
@@ -648,17 +776,16 @@ GameContract.prototype = {
                 "island": island,
             };
         } else {
-            let res = this._battle(island.army.fighter, island.army.bomber, 0,
-                army.fighter, army.bomber, 0)
+            let res = this._battle(island.army.tank, island.army.chopper, 0, army.tank, army.chopper, 0)
             if (res["win"]) { // 防守失败
                 this._collectIslandMoneyInternal(island); // 把上个玩家挖到的钱发给该玩家
                 island = this.allIslands.get(islandIndex); // 这边要重新获取，因为money会改变
                 island.occupant = userAddress;
                 island.lastMineTime = curTs;
             }
-            island.army.fighter = res['left'][0];
-            island.army.bomber = res['left'][1];
-            island.army.laser = res['left'][2];
+            island.army.tank = res['left'][0];
+            island.army.chopper = res['left'][1];
+            island.army.ship = res['left'][2];
 
             for (let key in army) {
                 if (user.cargoData[key] < army[key]) {
@@ -711,6 +838,33 @@ GameContract.prototype = {
         let dist = Math.sqrt(dX * dX + dY * dY);
         return dist * (user.expandCnt + 5) * this.energyCostPerLyExpand;
     },
+    
+    //=====Nuke
+    launchNuke: function (x, y) {
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        let curTs = (new Date()).valueOf();
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        this._recalcUser(user);
+        let locationData = user.locationData;
+        
+        //TODO:
+    },
+    triggerNuke: function (nukeIndex) {
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        let curTs = (new Date()).valueOf();
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        this._recalcUser(user);
+        let locationData = user.locationData;
+        
+        //TODO:
+    },
+
     //=====Core Function
     _recalcUser: function (user) {
         let curTime = (new Date()).valueOf();
