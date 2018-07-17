@@ -7,39 +7,26 @@ let User = function (jsonStr) {
             this[key] = obj[key];
         }
     } else {
-        let rad = Math.random() * Math.PI;
         this.nickname = "";
         this.address = "";
         this.country = "";
-        this.hull = 1; //完整度
+        this.healMaxTimestamp = 0; //方舟何时恢复满血
         this.expandCnt = 0; //默认0
 
-        let locationData = {};
-        locationData.speed = 0;
-        locationData.lastLocationX = Math.cos(rad) * 5000;
-        locationData.lastLocationY = Math.sin(rad) * 5000;
-        locationData.destinationX = null;
-        locationData.destinationY = null;
-        locationData.lastLocationTime = (new Date()).valueOf();
-        this.locationData = locationData;
-
         this.expandMap = {
-            "-1,0": {},
-            "-1,1": {},
-            "-1,-1": {},
-            "-2,0": {},
-            "-2,1": {},
-            "-2,-1": {},
-            "-3,0": {},
-            "-3,1": {},
-            "-3,-1": {},
             //"-3,2": {order: 23//第几次扩建的}
         };
+
         this.buildingMap = {
             //"-3,2":{id:"ironcoll", lv:2, recoverTime:10302019313, justBuildOrUpgrade: true}
         };
         this.cargoData = {
+            //test
+            sand: 1000,
+            silicon: 1000,
+            ch4: 1000000,
         };
+        this.myNukeList = [];
         this.lastCalcTime = (new Date()).valueOf();
     }
 };
@@ -59,7 +46,6 @@ let BuildingInfo = function (jsonStr) {
         }
     } else {
         this.id = 'no_id';
-        this.IronCost = 1;
     }
 };
 BuildingInfo.prototype = {
@@ -155,8 +141,13 @@ let GameContract = function () {
     LocalContractStorage.defineProperty(this, "adminAddress");
     LocalContractStorage.defineProperty(this, "totalIslandCnt");
     LocalContractStorage.defineProperty(this, "totalNas", BigNumberDesc);
-    LocalContractStorage.defineProperty(this, "cityMoveSpeed");
+    LocalContractStorage.defineProperty(this, "cityMoveSpeed");//方舟航行统一速度，km/h
+    LocalContractStorage.defineProperty(this, "raidCityCargoRate");//每次掠夺城市，可以夺走当前存量多少比例的货物
+    LocalContractStorage.defineProperty(this, "safeZoneLine");//安全区的边界的y值，暂定北回归线位置，23.5/90*6000=1567
+    LocalContractStorage.defineProperty(this, "damagePerAttackCity");//每次攻打城市对城市造成的最大血量百分比伤害，同时也是每小时恢复的百分比
     LocalContractStorage.defineProperty(this, "energyCostPerLyExpand");
+    LocalContractStorage.defineProperty(this, "nukemissSpeed");//洲际导弹飞行速度，km/h
+    LocalContractStorage.defineProperty(this, "nukeRadius");//核弹爆炸半径，km
     LocalContractStorage.defineProperty(this, "totalPirateCnt");
     LocalContractStorage.defineProperty(this, "pirateCargoC0");
     LocalContractStorage.defineProperty(this, "pirateArmyC0");
@@ -185,12 +176,15 @@ let GameContract = function () {
         stringify: function (obj) {
             return JSON.stringify(obj);
         }
-        // parse: function (jsonText) {
-        //     return new BuildingInfo(jsonText);
-        // },
-        // stringify: function (obj) {
-        //     return obj.toString();
-        // }
+    });
+    LocalContractStorage.defineMapProperty(this, "allCargoInfos", {
+
+        parse: function (jsonText) {
+            return JSON.parse(jsonText);
+        },
+        stringify: function (obj) {
+            return JSON.stringify(obj);
+        }
     });
     LocalContractStorage.defineProperty(this, "allIslands", {
         parse: function (jsonText) {
@@ -230,8 +224,13 @@ GameContract.prototype = {
     init: function () {
         this.adminAddress = Blockchain.transaction.from;
         this.totalNas = new BigNumber(0);
-        this.cityMoveSpeed = 100;
+        this.cityMoveSpeed = 150;
+        this.raidCityCargoRate = 0.1;
+        this.safeZoneLine = 1567;
+        this.damagePerAttackCity = 0.1;
         this.energyCostPerLyExpand = 0.01;
+        this.nukemissSpeed = 3600;
+        this.nukeRadius = 120;
         this.totalPirateCnt = 300;
         this.pirateCargoC0 = 100;
         this.pirateArmyC0 = 10;
@@ -239,29 +238,6 @@ GameContract.prototype = {
         this.allUserList = [];
         // this.allBuildingInfos = {};
         this.allIslands = [];
-    },
-    getMapInfo: function () {
-        let allUsers = this.allUsers;
-        let users = this.allUserList.map(function (address) {
-            return allUsers.get(address);
-        });
-        let islands = [];
-        for (let i = 0; i < this.allIslands.length; i++) {
-            islands.push(this.allIslands.get(i));
-        }
-        return {
-            "success": true,
-            "result_data": {
-                "users": users,
-                "islands": islands
-            }
-        };
-    },
-    getUserList: function () {
-        return this.allUserList;
-    },
-    getUser: function (address) {
-        return this.allUsers.get(address);
     },
     claimNewUser: function (nickname, country) {
         if (nickname.length > 100) {
@@ -274,15 +250,16 @@ GameContract.prototype = {
         let value = Blockchain.transaction.value;
 
         if (this.allUsers.get(userAddress) !== null) {
-            throw new Error("Has claim new user before.")
+            throw new Error("Has claim new user before.");
         }
 
-        this.totalNas = value.plus(this.totalNas);
+        this.totalNas = this.totalNas.plus(value);
 
         let user = new User();
         user.nickname = nickname;
         user.country = country;
         user.address = userAddress;
+        user.locationData = this.getRandomSpawnLocation();
         this.allUsers.set(userAddress, user);
         let allUserList = this.allUserList;
         allUserList.push(userAddress);
@@ -329,13 +306,12 @@ GameContract.prototype = {
         locationData.speed = this.cityMoveSpeed;
         locationData.destinationX = destinationX;
         locationData.destinationY = destinationY;
+
         let energyCost = this.getSailEnergyCost(user);
-        if (user.cargoData.energy < energyCost) {
+        if (user.cargoData.ch4 < energyCost) {
             throw new Error("User energy NOT enough.");
         }
-
-        user.cargoData.energy -= energyCost;
-        user.state = 0;
+        user.cargoData.ch4 -= energyCost;
 
         this.allUsers.set(userAddress, user);
 
@@ -347,34 +323,28 @@ GameContract.prototype = {
     expand: function (ijList) {//[[i,j],[i,j]]
         let userAddress = Blockchain.transaction.from;
         let user = this.allUsers.get(userAddress);
-        let value = Blockchain.transaction.value;
         if (user === null) {
             throw new Error("User NOT FOUND.");
         }
         this._recalcUser(user);
         let newExpandCnt = 0;
+        let needFloatmod = 0;
         for (let k = 0; k < ijList.length; k++) {
             let i = ijList[k][0];
             let j = ijList[k][1];
-            if (!user.expandMap[i + ',' + j]) {
+            if (!this._getCityIJExpanded(user, i, j)) {
                 user.expandMap[i + ',' + j] = { order: user.expandCnt + newExpandCnt };
                 newExpandCnt += 1;
+                needFloatmod += this.getExpandNeedFloatmod(i, j);
             }
         }
         if (newExpandCnt == 0) {
             throw new Error("All ij are expanded:" + ijList);
         }
-        this.totalNas = this.totalNas.plus(value);
-        let rechargeMoney = value / 1e18;
-        let needMoney = this.getExpandCost(user.expandCnt, newExpandCnt);
-        if (rechargeMoney < needMoney) {
-            throw new Error("Expand recharge NOT ENOUGH. Need " + needMoney + ", now " + rechargeMoney);
+        user.cargoData.floatmod -= needFloatmod;
+        if (user.cargoData.floatmod < 0) {
+            throw new Error("floatmod NOT enough to expand." + needFloatmod);
         }
-        //return extra money
-        let returnMoney = rechargeMoney - needMoney;
-        let returnWei = new BigNumber(Math.floor(returnMoney * 1e9) * 1e9);
-        this._transaction(userAddress, returnWei);
-        this.totalNas = this.totalNas.minus(returnWei);
 
         user.expandCnt += newExpandCnt;
 
@@ -392,7 +362,7 @@ GameContract.prototype = {
             throw new Error("User NOT FOUND.");
         }
         this._recalcUser(user);
-        if (!user.expandMap[i + ',' + j]) {
+        if (!this._getCityIJExpanded(user, i, j)) {
             throw new Error("Build Failed. (" + i + ',' + j + ") has not yet expanded.");
         }
         if (user.buildingMap[i + ',' + j]) {
@@ -403,14 +373,22 @@ GameContract.prototype = {
         if (!info) {
             throw new Error("Build Failed. CANNOT find buildingID." + buildingId);
         }
-        //check cargo
-        if (user.cargoData.iron < info.IronCost) {
-            throw new Error("Build Failed. Iron NOT ENOUGH." + user.cargoData.iron + "<" + info.IronCost);
+        //check cargo & consume cargo
+        for (let i = 0; i < 3; i++) {
+            let itemName = "BuildMat" + i;
+            let cargoName = info[itemName];
+            if (cargoName) {
+                let cntItemName = itemName + "Cnt";
+                let needCnt = info[cntItemName];
+                user.cargoData[cargoName] -= needCnt;
+                if (user.cargoData[cargoName] < 0) {
+                    throw new Error("Build Failed. Cargo NOT ENOUGH." + cargoName + "|" + user.cargoData[cargoName] + "<" + needCnt);
+                }
+            }
         }
         //build!
         let curTime = (new Date()).valueOf();
         user.buildingMap[i + ',' + j] = { id: buildingId, lv: 0, recoverTime: curTime + info.MaxCD / 4, justBuildOrUpgrade: true };
-        user.cargoData.iron -= info.IronCost;
 
         this.allUsers.set(userAddress, user);
         return {
@@ -426,9 +404,6 @@ GameContract.prototype = {
             throw new Error("User NOT FOUND.");
         }
         this._recalcUser(user);
-        if (!user.expandMap[i + ',' + j]) {
-            throw new Error("Upgrade Failed. (" + i + ',' + j + ") has not yet expanded.");
-        }
         if (!user.buildingMap[i + ',' + j]) {
             throw new Error("Upgrade Failed. (" + i + ',' + j + ") has no building.");
         }
@@ -443,15 +418,21 @@ GameContract.prototype = {
         if (curLv >= info.MaxLevel) {
             throw new Error("Upgrade Failed. Building level is MAX.");
         }
-        //check cargo
-        let ironMulti = this.allBuildingInfos.get('_upgradeRate').IronCost;
-        let ironCost = info.IronCost * Math.pow(ironMulti, curLv + 1);
-        if (user.cargoData.iron < ironCost) {
-            throw new Error("Upgrade Failed. Iron NOT ENOUGH." + user.cargoData.iron + "<" + ironCost);
+        //check cargo & consume cargo
+        for (let i = 0; i < 3; i++) {
+            let itemName = "BuildMat" + i;
+            let cargoName = info[itemName];
+            if (cargoName) {
+                let cntItemName = itemName + "Cnt";
+                let needCnt = this.getBuildingInfoItemWithLv(buildingId, cntItemName, curLv + 1);
+                user.cargoData[cargoName] -= needCnt;
+                if (user.cargoData[cargoName] < 0) {
+                    throw new Error("Build Failed. Cargo NOT ENOUGH." + cargoName + "|" + user.cargoData[cargoName] + "<" + needCnt);
+                }
+            }
         }
         //upgrade!
         user.buildingMap[i + ',' + j].lv += 1;
-        user.cargoData.iron -= ironCost;
 
         let cdMulti = this.allBuildingInfos.get('_upgradeRate').MaxCD;
         let maxCD = info.MaxCD * Math.pow(cdMulti, curLv + 1);
@@ -501,15 +482,19 @@ GameContract.prototype = {
         }
         //buildingInfo
         let info = this.allBuildingInfos.get(buildingId);
-        if (info) {
-            //cur Level
-            let curLv = user.buildingMap[i + ',' + j].lv;
-            //retrieve iron
-            let ironMulti = this.allBuildingInfos.get('_upgradeRate').IronCost;
-            let lastLvIronCost = info.IronCost * Math.pow(ironMulti, curLv);
-            //demolish!
-            user.cargoData.iron += ironCost / 2;
+
+        //recycle buildMat
+        for (let i = 0; i < 3; i++) {
+            let itemName = "BuildMat" + i;
+            let cargoName = info[itemName];
+            if (cargoName) {
+                let cntItemName = itemName + "Cnt";
+                let needCnt = this.getBuildingInfoItemWithLv(buildingId, cntItemName, curLv + 1);
+                this._userAddCargo(user, cargoName, needCnt * 0.5);//回收最后一级升级消耗的建筑材料的50%
+            }
         }
+
+        //demolish!
         user.buildingMap[i + ',' + j] = null;
 
         this.allUsers.set(userAddress, user);
@@ -530,6 +515,7 @@ GameContract.prototype = {
         }
         this._recalcUser(user);
         let building = user.buildingMap[i + ',' + j];
+        let buildingId = building.id;
         if (!building) {
             throw new Error("Building NOT FOUND." + i + ',' + j);
         }
@@ -538,42 +524,43 @@ GameContract.prototype = {
             throw new Error("Production is still in Cooldown." + i + ',' + j + " recoverTime:" + building.recoverTime + " curTime:" + curTime);
         }
 
-        //check input cargo!
-        let info = this.allBuildingInfos.get(building.id);
-        if (!user) {
-            throw new Error("CANNOT find buildingInfo." + building.id);
+        //cur Level
+        let curLv = building.lv;
+
+        let maxQueue = this.getBuildingInfoItemWithLv(buildingId, "MaxQueue", curLv);
+        if (amount >= maxQueue) {
+            throw new Error("Produce failed because amount >= maxQueue." + maxQueue);
         }
-        let out0 = info['Out0'];
-        let in0 = info['In0'];
-        let in0Amount = info['In0Amt'] * amount;
-        let in1 = info['In1'];
-        let in1Amount = info['In1Amt'] * amount;
-        if (!user.cargoData[in0] || user.cargoData[in0] < in0Amount) {
-            throw new Error("Input0 cargo NOT ENOUGH." + user.cargoData[in0]);
+
+        let info = this.allBuildingInfos.get(buildingId);
+        if (!info) {
+            throw new Error("CANNOT find buildingInfo." + buildingId);
         }
-        if (!user.cargoData[in1] || user.cargoData[in1] < in1Amount) {
-            throw new Error("Input1 cargo NOT ENOUGH." + user.cargoData[in1]);
+
+        //check input cargo & consume cargo
+        for (let i = 0; i < 4; i++) {
+            let itemName = "In" + i;
+            let cargoName = info[itemName];
+            if (cargoName) {
+                let cntItemName = itemName + "Amt";
+                let needCnt = this.getBuildingInfoItemWithLv(buildingId, cntItemName, curLv + 1) * amount;
+                user.cargoData[cargoName] -= needCnt;
+                if (user.cargoData[cargoName] < 0) {
+                    throw new Error("Produce Failed. Cargo NOT ENOUGH." + cargoName + "|" + user.cargoData[cargoName] + "<" + needCnt);
+                }
+            }
         }
 
         //produce!
         user.cargoData[in0] -= in0Amount;
         user.cargoData[in1] -= in1Amount;
-        user.cargoData[out0] += amount;
+        this._userAddCargo(user, out0, amount);
 
-        //check MaxCD
-        let cdPerUnit = this.getBuildingInfoItemWithLv(building.id, 'CDPerUnit', building.lv);
+        //add cd
+        let cdPerUnit = this.getBuildingInfoItemWithLv(buildingId, 'CDPerUnit', building.lv);
         let cd = amount * cdPerUnit;
-        let maxCD = this.getBuildingInfoItemWithLv(building.id, 'MaxCD', building.lv);
-        if (cd > maxCD) {
-            throw new Error("Amout TOO MUCH." + amount + " should < " + (maxCD / cdPerUnit));
-        }
-        //check Warehouse
-        let warehouseCap = this.getUserWarehouseCap(userAddress, out0);
-        if (user.cargoData[out0] > warehouseCap) {
-            throw new Error("Warehouse Capacity NOT ENOUGH." + user.cargoData[out0] + " should <= " + warehouseCap);
-        }
 
-        building.recoverTime = curTime + cd * 3600e3;
+        building.recoverTime = curTime + cd * 60e3;
         building.justBuildOrUpgrade = null;
 
         this.allUsers.set(userAddress, user);
@@ -583,6 +570,7 @@ GameContract.prototype = {
             "newCargo": [out0, amount]
         }
     },
+
     //=====PVE
     attackPirate: function (pirateIndex, army) {
         let pirateInfo = this.getPirateInfo(pirateIndex);// will refresh this.piratePeriodTimestamp
@@ -634,8 +622,7 @@ GameContract.prototype = {
                 //obtain cargos
                 let cargo = pirateInfo.cargo;
                 for (let key in cargo) {
-                    user.cargoData[key] += cargo[key];
-                    //TODO: 仓库上限
+                    this._userAddCargo(user, key, cargo[key]);
                 }
                 //attacker retrieves left army
                 for (let key in winnerLeftArmy) {
@@ -662,7 +649,7 @@ GameContract.prototype = {
         let enemy = this.allUsers.get(enemyAddress);
         let userAddress = Blockchain.transaction.from;
         let user = this.allUsers.get(userAddress);
-        let curTs = (new Date()).valueOf();
+        let curTime = (new Date()).valueOf();
         if (enemy === null) {
             throw new Error("CANNOT find enemy." + enemyAddress);
         }
@@ -673,6 +660,25 @@ GameContract.prototype = {
         this._recalcUser(enemy);
         this._recalcUser(user);
 
+        let locationData = user.locationData;
+        let enemyLocationData = enemy.locationData;
+
+        //check safe zone
+        if (locationData.y >= this.safeZoneLine) {
+            throw new Error("CANNOT attack other city when you are in Safe Zone." + locationData);
+        }
+        if (enemyLocationData.y >= this.safeZoneLine) {
+            throw new Error("CANNOT attack the enemy in Safe Zone." + enemyLocationData);
+        }
+
+        //check distance
+        let dx = locationData.x - enemyLocationData.x;
+        let dy = locationData.y - enemyLocationData.y;
+        let dist = Math.sqrt(dx * dx + dy + dy);
+        if (dist > 100) {
+            throw new Error("Too far from the enemy." + enemy + ", distance:" + dist);
+        }
+
         //consume army & check
         for (let key in army) {
             user.cargoData[key] -= army[key];
@@ -681,36 +687,46 @@ GameContract.prototype = {
             }
         }
 
-        //check distance
-        let enemyLocationData = enemy.locationData;
-        let locationData = user.locationData;
-        let dx = locationData.x - enemyLocationData.x;
-        let dy = locationData.y - enemyLocationData.y;
-        let dist = Math.sqrt(dx * dx + dy + dy);
-        if (dist > 100) {
-            throw new Error("Too far from the enemy." + enemy + ", distance:" + dist);
-        }
-
-        let res = this._battle(enemy.army.tank, enemy.army.chopper, enemy.army.ship, army.tank, army.chopper, army.ship);
+        let res = this._battle(enemy.cargoData.tank, enemy.cargoData.chopper, enemy.cargoData.ship, army.tank, army.chopper, army.ship);
 
         //enemy consume army
-        enemy.army.tank = 0;
-        enemy.army.chopper = 0;
-        enemy.army.ship = 0;
+        enemy.cargoData.tank = 0;
+        enemy.cargoData.chopper = 0;
+        enemy.cargoData.ship = 0;
 
         if (res["win"]) { //敌方防守失败
             //retrieve army
-            user.army.tank += res['left'][0];
-            user.army.chopper += res['left'][1];
-            user.army.ship += res['left'][2];
-            //TODO：转移物资
-            //TODO：安全区
-            //TODO：方舟受损
+            user.cargoData.tank += res['left'][0];
+            user.cargoData.chopper += res['left'][1];
+            user.cargoData.ship += res['left'][2];
+            //转移物资
+            for (let cargoName in enemy.cargoData) {
+                let info = this.allCargoInfos.get(cargoName);
+                if (info.CanRaid) {
+                    let houseCap = this.getUserWarehouseCap(user.address, cargoName);
+                    let transferAmt = Math.min(enemy.cargoData[cargoName] * this.raidCityCargoRate, houseCap - user.cargoData[cargoName]);
+                    if (transferAmt > 0) {
+                        enemy.cargoData[cargoName] -= transferAmt;
+                        user.cargoData[cargoName] += transferAmt;
+                    }
+                }
+            }
+
+            //方舟受损
+            let curCityHull = Math.min(1, 1 - (user.healMaxTimestamp - curTime) / 3600e3 * this.damagePerAttackCity);
+            curCityHull -= this.damagePerAttackCity;
+            if (curCityHull > 0) {
+                //未沉没
+                curCityHull.healMaxTimestamp = curTime + (1 - curCityHull) / this.damagePerAttackCity * 3600e3;
+            } else {
+                //沉没了
+                this._cityDestroy(user);
+            }
         } else { //我方进攻失败
             //enemy retrieve army
-            enemy.army.tank += res['left'][0];
-            enemy.army.chopper += res['left'][1];
-            enemy.army.ship += res['left'][2];
+            enemy.cargoData.tank += res['left'][0];
+            enemy.cargoData.chopper += res['left'][1];
+            enemy.cargoData.ship += res['left'][2];
         }
 
         this.allUsers.set(enemyAddress, enemy);
@@ -726,7 +742,7 @@ GameContract.prototype = {
         let island = this.allIslands.get(islandIndex);
         let userAddress = Blockchain.transaction.from;
         let user = this.allUsers.get(userAddress);
-        let curTs = (new Date()).valueOf();
+        let curTime = (new Date()).valueOf();
         if (island === null) {
             throw new Error("Error island index." + islandIndex);
         }
@@ -744,15 +760,15 @@ GameContract.prototype = {
         }
 
         let powerAttenuRate = new BigNumber(0.05);
-        let hoursDelta = (new BigNumber(curTs - island.lastBattleTime)).div(1000 * 3600);
+        let hoursDelta = (new BigNumber(curTime - island.lastBattleTime)).div(1000 * 3600);
         let attenu = Math.exp(powerAttenuRate.times(hoursDelta).negated());
         for (let key in island.army) {
             island.army[key] = Math.round(island.army[key] * attenu);
         }
-        island.lastBattleTime = curTs;
+        island.lastBattleTime = curTime;
         if (island.occupant === "" || island.occupant === userAddress) { // 没有被占领或者自己占领
             if (island.occupant === "") {
-                island.lastMineTime = curTs;
+                island.lastMineTime = curTime;
             }
             island.occupant = userAddress;
 
@@ -781,7 +797,7 @@ GameContract.prototype = {
                 this._collectIslandMoneyInternal(island); // 把上个玩家挖到的钱发给该玩家
                 island = this.allIslands.get(islandIndex); // 这边要重新获取，因为money会改变
                 island.occupant = userAddress;
-                island.lastMineTime = curTs;
+                island.lastMineTime = curTime;
             }
             island.army.tank = res['left'][0];
             island.army.chopper = res['left'][1];
@@ -817,77 +833,165 @@ GameContract.prototype = {
         };
     },
     _collectIslandMoneyInternal: function (island) {
-        let curTs = (new Date()).valueOf();
-        let hoursDelta = (new BigNumber(curTs - island.lastMineTime)).div(1000 * 3600);
+        let curTime = (new Date()).valueOf();
+        let hoursDelta = (new BigNumber(curTime - island.lastMineTime)).div(1000 * 3600);
         let leftNas = island.money.times(Math.exp(island.miningRate.times(hoursDelta).negated()).toString()).trunc();
         let miningNas = island.money.minus(leftNas);
 
         island.money = leftNas;
-        island.lastMineTime = curTs;
+        island.lastMineTime = curTime;
         this.allIslands.set(island.id, island);
         this._transaction(island.occupant, miningNas);
 
         return miningNas;
     },
+
     //=====Sail
     getSailEnergyCost: function (user) {
-        let locData = user.locationData;
-        if (locData.destinationX === null || locData.destinationY === null) return 0;
-        let dX = locData.destinationX - locData.lastLocationX;
-        let dY = locData.destinationY - locData.lastLocationY;
-        let dist = Math.sqrt(dX * dX + dY * dY);
-        return dist * (user.expandCnt + 5) * this.energyCostPerLyExpand;
-    },
-    
-    //=====Nuke
-    launchNuke: function (x, y) {
-        let userAddress = Blockchain.transaction.from;
-        let user = this.allUsers.get(userAddress);
-        let curTs = (new Date()).valueOf();
-        if (user === null) {
-            throw new Error("User NOT FOUND.");
-        }
-        this._recalcUser(user);
-        let locationData = user.locationData;
-        
-        //TODO:
-    },
-    triggerNuke: function (nukeIndex) {
-        let userAddress = Blockchain.transaction.from;
-        let user = this.allUsers.get(userAddress);
-        let curTs = (new Date()).valueOf();
-        if (user === null) {
-            throw new Error("User NOT FOUND.");
-        }
-        this._recalcUser(user);
-        let locationData = user.locationData;
-        
-        //TODO:
-    },
-
-    //=====Core Function
-    _recalcUser: function (user) {
-        let curTime = (new Date()).valueOf();
-        //location
         let locationData = user.locationData;
         if (locationData.destinationX === null || locationData.destinationY === null) return 0;
         let dX = locationData.destinationX - locationData.lastLocationX;
         let dY = locationData.destinationY - locationData.lastLocationY;
         let dist = Math.sqrt(dX * dX + dY * dY);
-        let needTime = dist / (user.locationData.speed / 60 / 1000);
-        let t = (curTime - user.locationData.lastLocationTime) / needTime;
+        return dist * (user.expandCnt + 5) * this.energyCostPerLyExpand;
+    },
+
+    //=====Nuke
+    launchNuke: function (x, y) {
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        let curTime = (new Date()).valueOf();
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        this._recalcUser(user);
+
+        //check safe zone
+        if (user.locationData.y >= this.safeZoneLine) {
+            throw new Error("CANNOT launch nuke when you are in Safe Zone." + user.locationData);
+        }
+
+        if (user.cargoData.nukemiss < 1) {
+            throw new Error("nukemiss NOT ENOUGH.", user.cargoData.nukemiss);
+        }
+        user.cargoData.nukemiss -= 1;
+
+        let nuke = new Nuke();
+        nuke.owner = userAddress;
+
+        let locationData = {};
+        locationData.speed = this.nukemissSpeed;
+        locationData.lastLocationX = user.locationData.lastLocationX;
+        locationData.lastLocationY = user.locationData.lastLocationY;
+        locationData.destinationX = x;
+        locationData.destinationY = y;
+        locationData.lastLocationTime = curTime;
+        nuke.locationData = nuke;
+
+        user.myNukeList.push(nuke);
+
+        this.allUsers.set(userAddress, user);
+
+        return {
+            "success": true,
+            "result_data": nuke,
+            "index": user.myNukeList.length - 1
+        }
+    },
+    triggerNuke: function (nukeIndex, checkEnemyList) {
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        let curTime = (new Date()).valueOf();
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+
+        // this._recalcUser(user);
+        this._recalcLocationData(user.locationData);
+
+        //check safe zone
+        if (user.locationData.y >= this.safeZoneLine) {
+            throw new Error("CANNOT trigger nuke when you are in Safe Zone." + user.locationData);
+        }
+
+        let nuke = user.myNukeList[nukeIndex];
+        if (!nuke.alive) {
+            throw new Error("Nuke is NOT alive." + nukeIndex);
+        }
+
+        let locationData = nuke.locationData;
+        let tmp = this._recalcLocationData(locationData);
+        if (tmp.t < 1) {
+            throw new Error("The nuke has NOT yet arrive at the destination.");
+        }
+        if (tmp.eta > curTime + 20 * 60e3) {
+            throw new Error("The nuke is EXPIRED.");
+        }
+
+        nuke.alive = false;
+
+        for (let i = 0; i < checkEnemyList.length; i++) {
+            let enemyAddress = checkEnemyList[i];
+            let enemy = this.allUsers.get(enemyAddress);
+            if (enemy === null) {
+                continue;
+            }
+            this._recalcUser(enemy);
+
+            let enemyLocationData = enemy.locationData;
+
+            //check safe zone
+            if (enemyLocationData.y >= this.safeZoneLine) {
+                continue;
+            }
+
+            //check distance
+            let dx = locationData.x - enemyLocationData.x;
+            let dy = locationData.y - enemyLocationData.y;
+            let dist = Math.sqrt(dx * dx + dy + dy);
+            if (dist > this.nukeRadius) {
+                continue;
+            }
+
+            this._cityDestroy(enemy);
+            this.allUsers.set(enemyAddress, enemy);
+
+            nuke.affectedCities.push(enemyAddress);
+        }
+
+        this.allUsers.set(userAddress, user);
+    },
+
+    //=====Core Function
+    _recalcLocationData: function (locationData) {
+        let curTime = (new Date()).valueOf();
+        if (locationData.destinationX === null || locationData.destinationY === null) return 0;
+        let dX = locationData.destinationX - locationData.lastLocationX;
+        let dY = locationData.destinationY - locationData.lastLocationY;
+        let dist = Math.sqrt(dX * dX + dY * dY);
+        let needTime = dist / (locationData.speed / 3600e3);
+        let eta = locationData.lastLocationTime + needTime;
+        let t = (curTime - locationData.lastLocationTime) / needTime;
         if (t < 1) {
+            //not yet arrive at destination
             let curLoc = this._lerpVec2({ x: locationData.lastLocationX, y: locationData.lastLocationY }, { x: locationData.destinationX, y: locationData.destinationY }, t, false);
             locationData.lastLocationX = curLoc.x;
             locationData.lastLocationY = curLoc.y;
         } else {
+            //arrived
             locationData.lastLocationX = locationData.destinationX;
             locationData.lastLocationY = locationData.destinationY;
             locationData.destinationX = null;
             locationData.destinationY = null;
         }
         locationData.lastLocationTime = curTime;
-        user.locationData = locationData;
+        return { t: t, eta: eta };
+    },
+    _recalcUser: function (user) {
+        let curTime = (new Date()).valueOf();
+
+        //location
+        this._recalcLocationData(user.locationData);
 
         //collecting
         let collectingHours = (curTime - user.lastCalcTime) / 3600000;
@@ -899,6 +1003,9 @@ GameContract.prototype = {
         user.lastCalcTime = curTime;
 
         this.allUsers.set(user.address, user);
+    },
+    _userAddCargo: function (user, cargoName, cargoAmount) {
+        user.cargoData[cargoName] = Math.min(user.cargoData[cargoName] + cargoAmount, this.getUserWarehouseCap(user.address, cargoName));
     },
     _battle: function (bb1, cc1, dd1, bb2, cc2, dd2) { /*策划设定*/
         let c1 = 20; /*攻击方坦克攻击*/
@@ -969,6 +1076,14 @@ GameContract.prototype = {
             "left": [bb, cc, dd]
         }
     },
+    _cityDestroy: function (user) {
+        user.healMaxTimestamp = 0;
+        //lost all cargo
+        user.cargoData = {};
+        this._userAddCargo(user, "sand", 100);
+        //reset position
+        this.locationData = this.getRandomSpawnLocation();
+    },
     _transaction: function (targetAddress, value) {
         var result = Blockchain.transfer(targetAddress, value);
         console.log("transfer result:", result);
@@ -1014,9 +1129,60 @@ GameContract.prototype = {
         return {
             "success": true,
             "island": island
-        };;
+        };
     },
     //=====Get
+    getRandomSpawnLocation: function () {
+        let rad = (0.25 + 0.5 * Math.random()) * Math.PI;
+        let locationData = {};
+        locationData.speed = 0;
+        locationData.lastLocationX = Math.cos(rad) * 5000;
+        locationData.lastLocationY = Math.sin(rad) * 5000;
+        locationData.destinationX = null;
+        locationData.destinationY = null;
+        locationData.lastLocationTime = (new Date()).valueOf();
+        return locationData;
+    },
+    _getCityIJExpanded: function (user, i, j) {
+        if (Math.abs(i) <= 4 && Math.abs(j) <= 4) {
+            return {};
+        }
+        return user.expandMap[i + ',' + j]
+    },
+    getMapInfo: function () {
+        let allUsers = this.allUsers;
+        let users = this.allUserList.map(function (address) {
+            let user = allUsers.get(address);
+            let simpleUser = {
+                nickname: user.nickname,
+                address: user.address,
+                country: user.country,
+                healMaxTimestamp: user.healMaxTimestamp,
+                expandCnt: user.expandCnt,
+                locationData: user.locationData,
+                myNukeList: user.myNukeList,
+            }
+            return simpleUser;
+        });
+        let islands = [];
+        for (let i = 0; i < this.allIslands.length; i++) {
+            islands.push(this.allIslands.get(i));
+        }
+        //TODO: Pirate
+        return {
+            "success": true,
+            "result_data": {
+                "users": users,
+                "islands": islands
+            }
+        };
+    },
+    getUserList: function () {
+        return this.allUserList;
+    },
+    getUser: function (address) {
+        return this.allUsers.get(address);
+    },
     getPirateInfoteInfo: function (index) {
         if (index >= this.totalPirateCnt) {
             throw new Error("index must < totalPirateCnt." + index + '<' + this.totalPirateCnt);
@@ -1079,20 +1245,11 @@ GameContract.prototype = {
         }
         return this.allPirates.get(index);
     },
-    getExpandCost: function (curExpandCnt, addExpandCnt) {
-        let cost = 0;
-        for (let i = curExpandCnt; i < curExpandCnt + addExpandCnt; i++) {
-            cost += 0.0001 * Math.exp(0.15 * i);
-        }
-        return cost;
-    },
-    getExpandCostNas: function (curExpandCnt, addExpandCnt) {
-        let cost = new BigNumber(0);
-        let a = new BigNumber(0.0001 * 1e18);
-        for (let i = curExpandCnt; i < curExpandCnt + addExpandCnt; i++) {
-            cost = cost.add(a.times(Math.exp(new BigNumber(0.15).times(new BigNumber(i))).toString()).trunc());
-        }
-        return cost;
+    getExpandNeedFloatmod: function (i, j) {
+        let radius = Math.max(Math.abs(i), Math.abs(j));
+        let t = radius - 3;
+        let res = t * t * t;
+        return res;
     },
     getBuildingInfoItemWithLv: function (buildingId, itemName, lv) {
         let value = this.allBuildingInfos.get(buildingId)[itemName];
@@ -1188,6 +1345,25 @@ GameContract.prototype = {
     },
     getBuildingInfo: function (id) {
         return this.allBuildingInfos.get(id);
+    },
+    setCargoInfo: function (infoArray) {
+        if (Blockchain.transaction.from != this.adminAddress) {
+            throw new Error("Permission denied.");
+        }
+        for (let key in this.allCargoInfos) {
+            this.allCargoInfos.del(key);
+        }
+        for (let i = 0; i < infoArray.length; i++) {
+            let info = infoArray[i];
+            this.allCargoInfos.set(info.id, info);
+        }
+        return {
+            "success": true,
+            "length": infoArray.length
+        }
+    },
+    getCargoInfo: function (id) {
+        return this.allCargoInfos.get(id);
     },
     setIslandInfo: function (infoArray) {
         if (Blockchain.transaction.from != this.adminAddress) {

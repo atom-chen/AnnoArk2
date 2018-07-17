@@ -1,14 +1,14 @@
 {
   "ver": "1.0.0",
-  "uuid": "ef85d803-0646-41b5-a645-3084e2186134",
+  "uuid": "056b15c3-b47c-44f3-9ad2-9407e0de59b6",
   "type": "sprite",
   "wrapMode": "clamp",
   "filterMode": "bilinear",
   "subMetas": {
-    "home_cb0": {
+    "deutercoll": {
       "ver": "1.0.3",
-      "uuid": "f29b0d2c-c3ff-4a35-a57d-5dee0c65b39c",
-      "rawTextureUuid": "ef85d803-0646-41b5-a645-3084e2186134",
+      "uuid": "9f59d974-ba89-4dda-b5eb-c8d7a760b750",
+      "rawTextureUuid": "056b15c3-b47c-44f3-9ad2-9407e0de59b6",
       "trimType": "auto",
       "trimThreshold": 1,
       "rotated": false,
@@ -16,10 +16,10 @@
       "offsetY": 0,
       "trimX": 0,
       "trimY": 0,
-      "width": 228,
-      "height": 226,
-      "rawWidth": 228,
-      "rawHeight": 226,
+      "width": 213,
+      "height": 213,
+      "rawWidth": 213,
+      "rawHeight": 213,
       "borderTop": 0,
       "borderBottom": 0,
       "borderLeft": 0,
