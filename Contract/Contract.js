@@ -906,8 +906,7 @@ GameContract.prototype = {
             throw new Error("User NOT FOUND.");
         }
 
-        // this._recalcUser(user);
-        this._recalcLocationData(user.locationData);
+        this._recalcLocationData(user.locationData);// this._recalcUser(user);
 
         //check safe zone
         if (user.locationData.y >= this.safeZoneLine) {
