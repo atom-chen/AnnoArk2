@@ -202,20 +202,13 @@ let GameContract = function () {
             return obj.toString();
         }
     });
-    LocalContractStorage.defineProperty(this, "allNukeList", {
+    LocalContractStorage.defineMapProperty(this, "allOrders", {
+
         parse: function (jsonText) {
             return JSON.parse(jsonText);
         },
         stringify: function (obj) {
             return JSON.stringify(obj);
-        }
-    })
-    LocalContractStorage.defineMapProperty(this, "allNukes", {
-        parse: function (jsonText) {
-            return new Nuke(jsonText);
-        },
-        stringify: function (obj) {
-            return obj.toString();
         }
     });
 }
@@ -236,7 +229,6 @@ GameContract.prototype = {
         this.pirateArmyC0 = 10;
         this.piratePeriodTimestamp = 0;
         this.allUserList = [];
-        // this.allBuildingInfos = {};
         this.allIslands = [];
     },
     claimNewUser: function (nickname, country) {
@@ -1003,8 +995,17 @@ GameContract.prototype = {
 
         this.allUsers.set(user.address, user);
     },
-    _userAddCargo: function (user, cargoName, cargoAmount) {
-        user.cargoData[cargoName] = Math.min(user.cargoData[cargoName] + cargoAmount, this.getUserWarehouseCap(user.address, cargoName));
+    _userAddCargo: function (user, cargoName, cargoAmount) { //return actually added amount
+        if (cargoAmount < 0) {
+            throw new Error('_userAddCargo() cargoAmount must >= 0' + cargoAmount);
+        }
+        let capacity = this.getUserWarehouseCap(user.address, cargoName);
+        if (user.cargoData[cargoName] < capacity) {
+            let addedAmount = Math.min(cargoAmount, capacity - user.cargoData[cargoName]);
+            user.cargoData[cargoName] = user.cargoData[cargoName] + addedAmount;
+            return addedAmount;
+        }
+        return 0;
     },
     _battle: function (bb1, cc1, dd1, bb2, cc2, dd2) { /*策划设定*/
         let c1 = 20; /*攻击方坦克攻击*/
@@ -1130,6 +1131,138 @@ GameContract.prototype = {
             "island": island
         };
     },
+
+    //=====Give & Trade & Shop
+    transfer: function (receiverAddress, cargoName, amount) {
+        if (amount <= 0) {
+            throw new Error("amount must > 0.");
+        }
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        this._recalcUser(user);
+
+        let receiver = this.allUsers.get(receiverAddress);
+        if (receiver === null) {
+            throw new Error("Receiver NOT FOUND.");
+        }
+        this._recalcUser(receiver);
+
+        user.cargoData[cargoName] -= amount;
+        this._userAddCargo(receiver, cargoName, amount);
+        if (user.cargoData[cargoName] < 0) {
+            throw new Error("user's cargo NOT ENOUGH to transfer." + user.cargoData[cargoName]);
+        }
+
+        this.allUsers.set(userAddress, user);
+        this.allUsers.set(receiverAddress, receiver);
+
+        return {
+            "success": true,
+        };
+    },
+    makeOrder: function (orderID, cargos, valueWei, assignedTaker) { //我的需求，数值可以是负的。对方吃单时要提供相反的需求。举例：某卖单{cargos:{sand: -100}, valueWei:1e18}，注意负号
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        let order = this.allOrders.get(orderID);
+        if (order) {
+            throw new Error("orderID is occupied. Change orderID!" + orderID);
+        }
+        //Freeze coin if it is a buy order
+        if (valueWei < 0) {
+            if (Blockchain.transaction.value < -valueWei) {
+                throw new Error("Paid coin not enough.");
+            }
+        }
+        order = {
+            maker: userAddress,
+            cargos: cargos,
+            valueWei: valueWei,
+            valid: true,
+        };
+        if (assignedTaker) {
+            order.assignedTaker = assignedTaker;
+        }
+        this.allOrders.set(orderID, order);
+        return {
+            "success": true,
+        };
+    },
+    takeOrder: function (orderID) {
+        let userAddress = Blockchain.transaction.from;
+        let order = this.allOrders.get(orderID);
+        if (order === null) {
+            throw new Error("Order NOT FOUND");
+        }
+        if (!order.valid) {
+            throw new Error("order is INVALID!");
+        }
+        if (order.assignedTaker && userAddress != order.assignedTaker) {
+            throw new Error("Only assignedTaker can take this order!" + order.assignedTaker);
+        }
+        //Check coin
+        if (order.valueWei > 0) { //taker need to pay
+            if (Blockchain.transaction.value < order.valueWei) {
+                throw new Error("Paid coin not enough.");
+            }
+            this._transaction(order.maker, order.valueWei); //maker get money
+        }
+        //Check cargo. 双方必须都满足条件
+        let maker = this.allUsers.get(order.maker);
+        let taker = this.allUsers.get(order.taker);
+        for (let cargoName in order.cargos) {
+            let amount = order.cargos[cargoName];
+            if (amount < 0) {
+                maker.cargoData[cargoName] += amount; //actually is -
+                if (maker.cargoData[cargoName] < 0) {
+                    throw new Error("maker's cargo NOT ENOUGH!");
+                }
+                this._userAddCargo(taker, cargoName, -amount);
+            } else if (amount > 0) {
+                this._userAddCargo(maker, cargoName, amount);
+                taker.cargoData[cargoName] -= amount;
+                if (taker.cargoData[cargoName] < 0) {
+                    throw new Error("taker's cargo NOT ENOUGH!");
+                }
+            }
+            //So, cargos that overflow the warehouse will be destroyed!
+        }
+        order.valid = false;
+        this.allOrders.set(orderID, order);
+        return {
+            "success": true,
+        };
+    },
+    cancelOrder: function (orderID) {
+        let userAddress = Blockchain.transaction.from;
+        let order = this.allOrders.get(orderID);
+        if (order === null) {
+            throw new Error("Order NOT FOUND");
+        }
+        if (!order.valid) {
+            throw new Error("order is INVALID!");
+        }
+        if (userAddress != order.maker) {
+            throw new Error("Only order-maker can cancel order!" + order.maker);
+        }
+        //Unfreeze coin if it is a buy order
+        if (order.valueWei < 0) {
+            //Return frozen coin
+            let returnMoneyWei = - order.valueWei;
+            this._transaction(order.maker, returnMoneyWei);
+        }
+        order.valid = false;
+        this.allOrders.set(orderID, order);
+        return {
+            "success": true,
+        };
+    },
+
     //=====Get
     getRandomSpawnLocation: function () {
         let rad = (0.25 + 0.5 * Math.random()) * Math.PI;
@@ -1287,6 +1420,13 @@ GameContract.prototype = {
             }
         }
         return cap;
+    },
+    getOrder: function (orderID) {
+        let order = this.allOrders.get(orderID);
+        return order;
+    },
+    getConst: function (constName) {
+        return this[constName];
     },
     //=====Math
     _lerpVec2: function (a, b, t, clamp) {
