@@ -19,10 +19,11 @@ let User = function (jsonStr) {
 
         this.buildingMap = {
             //"-3,2":{id:"ironcoll", lv:2, recoverTime:10302019313, justBuildOrUpgrade: true}
+            "0,0": { id: "hq", lv: 0 }
         };
         this.cargoData = {
             //test
-            sand: 1000,
+            sand: 1000, //TODO：改为40
             silicon: 1000,
             ch4: 1000000,
         };
@@ -152,6 +153,10 @@ let GameContract = function () {
     LocalContractStorage.defineProperty(this, "pirateCargoC0");
     LocalContractStorage.defineProperty(this, "pirateArmyC0");
     LocalContractStorage.defineProperty(this, "piratePeriodTimestamp");
+    // LocalContractStorage.defineProperty(this, "bancorA");//初始价格
+    // LocalContractStorage.defineProperty(this, "bancorK");//敏感度
+    // LocalContractStorage.defineProperty(this, "bancorX");//发行量
+    // LocalContractStorage.defineProperty(this, "bancorFee");//交易费率
     LocalContractStorage.defineProperty(this, "allUserList", {
         parse: function (jsonText) {
             return JSON.parse(jsonText);
@@ -211,6 +216,14 @@ let GameContract = function () {
             return JSON.stringify(obj);
         }
     });
+    LocalContractStorage.defineMapProperty(this, "bancorInfos", {
+        parse: function (jsonText) {
+            return JSON.parse(jsonText);
+        },
+        stringify: function (obj) {
+            return JSON.stringify(obj);
+        }
+    });
 }
 
 GameContract.prototype = {
@@ -230,6 +243,14 @@ GameContract.prototype = {
         this.piratePeriodTimestamp = 0;
         this.allUserList = [];
         this.allIslands = [];
+        // this.bancorA = 0.01;
+        // this.bancorK = 0.001;
+        // this.bancorX = 0;
+        // this.bancorFee = 0.001;
+        this.bancorInfos.set('floatmodA', 0.01);//初始价格
+        this.bancorInfos.set('floatmodK', 0.001);//敏感度
+        this.bancorInfos.set('floatmodX', 0);//发行量
+        this.bancorInfos.set('floatmodFee', 0.001);//交易费率
     },
     claimNewUser: function (nickname, country) {
         if (nickname.length > 100) {
@@ -378,9 +399,25 @@ GameContract.prototype = {
                 }
             }
         }
+        //check money
+        let needMoney = info.Money;
+        let value = Blockchain.transaction.value;
+        if (needMoney && needMoney > 0) {
+            if (value < needMoney * 1e18) {
+                throw new Error("Build Failed. Money NOT ENOUGH. " + needMoney);
+            }
+        }
+        this.totalNas = this.totalNas.plus(value);
+
         //build!
         let curTime = (new Date()).valueOf();
-        user.buildingMap[i + ',' + j] = { id: buildingId, lv: 0, recoverTime: curTime + info.MaxCD / 4, justBuildOrUpgrade: true };
+        user.buildingMap[i + ',' + j] = {
+            id: buildingId,
+            lv: 0,
+            recoverTime: curTime + info.MaxCD / 4,
+            justBuildOrUpgrade: true,
+            money: value
+        };
 
         this.allUsers.set(userAddress, user);
         return {
@@ -396,17 +433,18 @@ GameContract.prototype = {
             throw new Error("User NOT FOUND.");
         }
         this._recalcUser(user);
-        if (!user.buildingMap[i + ',' + j]) {
+        let building = user.buildingMap[i + ',' + j];
+        if (!building) {
             throw new Error("Upgrade Failed. (" + i + ',' + j + ") has no building.");
         }
-        let buildingId = user.buildingMap[i + ',' + j].id;
+        let buildingId = building.id;
         //buildingInfo
         let info = this.allBuildingInfos.get(buildingId);
         if (!info) {
             throw new Error("Build Failed. CANNOT find buildingID." + buildingId);
         }
         //cur Level
-        let curLv = user.buildingMap[i + ',' + j].lv;
+        let curLv = building.lv;
         if (curLv >= info.MaxLevel) {
             throw new Error("Upgrade Failed. Building level is MAX.");
         }
@@ -424,13 +462,13 @@ GameContract.prototype = {
             }
         }
         //upgrade!
-        user.buildingMap[i + ',' + j].lv += 1;
+        building.lv += 1;
 
         let cdMulti = this.allBuildingInfos.get('_upgradeRate').MaxCD;
         let maxCD = info.MaxCD * Math.pow(cdMulti, curLv + 1);
 
-        user.buildingMap[i + ',' + j].recoverTime = curTime + maxCD / 4;
-        user.buildingMap[i + ',' + j].justBuildOrUpgrade = true;
+        building.recoverTime = curTime + maxCD / 4;
+        building.justBuildOrUpgrade = true;
 
         this.allUsers.set(userAddress, user);
         return {
@@ -469,9 +507,12 @@ GameContract.prototype = {
             throw new Error("User NOT FOUND.");
         }
         this._recalcUser(user);
-        if (!user.buildingMap[i + ',' + j]) {
+        let building = user.buildingMap[i + ',' + j];
+        if (!building) {
             throw new Error("Demolish Failed. (" + i + ',' + j + ") has no building.");
         }
+        let curLv = building.lv;
+        let buildingId = building.id;
         //buildingInfo
         let info = this.allBuildingInfos.get(buildingId);
 
@@ -486,14 +527,17 @@ GameContract.prototype = {
             }
         }
 
+        //return reserve money
+        if (building.value > 0) {
+            this._transaction(userAddress, building.value);
+        }
+
         //demolish!
         user.buildingMap[i + ',' + j] = null;
 
         this.allUsers.set(userAddress, user);
         return {
             "success": true,
-            "result_data": user,
-            "newBuilding": [i, j, buildingId]
         }
     },
     produce: function (i, j, amount) {
@@ -985,11 +1029,24 @@ GameContract.prototype = {
         this._recalcLocationData(user.locationData);
 
         //collecting
-        let collectingHours = (curTime - user.lastCalcTime) / 3600000;
-        let collectedIron = this.getUserCollectorRate(user.address, 'ironcoll') * collectingHours;
-        let collectedEnergy = this.getUserCollectorRate(user.address, 'energycoll') * collectingHours;
-        user.cargoData.iron += collectedIron;
-        user.cargoData.energy += collectedEnergy;
+        let addCargos = {};
+        for (let key in user.buildingMap) {
+            let bdg = user.buildingMap[key];
+            if (!bdg) continue;
+            let info = this.allBuildingInfos.get(bdg.id);
+            if (info.Out0 && info.Out0Rate > 0) {
+                let cargoName = info.Out0;
+                if (!addCargos[cargoName]) {
+                    addCargos[cargoName] = 0;
+                }
+                addCargos[cargoName] += this.getBuildingInfoItemWithLv(bdg.id, 'Out0Rate', bdg.lv);
+            }
+        }
+
+        let collectingMinutes = (curTime - user.lastCalcTime) / 60e3;
+        for (let cargoName in addCargos) {
+            this._userAddCargo(user, cargoName, addCargos[cargoName] * collectingMinutes);
+        }
 
         user.lastCalcTime = curTime;
 
@@ -1086,14 +1143,14 @@ GameContract.prototype = {
     },
     _transaction: function (targetAddress, value) {
         var result = Blockchain.transfer(targetAddress, value);
-        console.log("transfer result:", result);
-        Event.Trigger("transfer", {
-            Transfer: {
-                from: Blockchain.transaction.to,
-                to: targetAddress,
-                value: value
-            }
-        });
+        console.log("transfer result:", result, value, value / 1e18);
+        // Event.Trigger("transfer", {
+        //     Transfer: {
+        //         from: Blockchain.transaction.to,
+        //         to: targetAddress,
+        //         value: value
+        //     }
+        // });
     },
     //=====Sponsor
     sponsor: function (islandId, sponsorName, link, ) {
@@ -1214,7 +1271,7 @@ GameContract.prototype = {
         }
         //Check cargo. 双方必须都满足条件
         let maker = this.allUsers.get(order.maker);
-        let taker = this.allUsers.get(order.taker);
+        let taker = this.allUsers.get(userAddress);
         for (let cargoName in order.cargos) {
             let amount = order.cargos[cargoName];
             if (amount < 0) {
@@ -1232,8 +1289,11 @@ GameContract.prototype = {
             }
             //So, cargos that overflow the warehouse will be destroyed!
         }
+        order.taker = userAddress;
         order.valid = false;
         this.allOrders.set(orderID, order);
+        this.allUsers.set(userAddress, taker);
+        this.allUsers.set(order.maker, maker);
         return {
             "success": true,
         };
@@ -1261,6 +1321,74 @@ GameContract.prototype = {
         return {
             "success": true,
         };
+    },
+    //=====Bancor of floatmod
+    bancorTrade: function (cargoName, b) {
+        let value = Blockchain.transaction.value;
+        let userAddress = Blockchain.transaction.from;
+        let user = this.allUsers.get(userAddress);
+        if (user === null) {
+            throw new Error("User NOT FOUND.");
+        }
+        let A = this.bancorInfos.get(cargoName + 'A');
+        let K = this.bancorInfos.get(cargoName + 'K');
+        let X = this.bancorInfos.get(cargoName + 'X');
+        if (b > 0) { //buy
+            //check value
+            let c = A / K * (Math.exp(K * (X + b)) - Math.exp(K * X));
+            if (value < c * 1e18) {
+                throw new Error("Value NOT ENOUGH to buy. need " + c + ".You give " + value);
+            }
+            //return exceeded part
+
+            //add cargo
+            this._userAddCargo(user, cargoName, b);
+        } else if (b < 0) { //sell
+            user.cargoData[cargoName] -= b;
+            if (user.cargoData[cargoName] < 0) {
+                throw new Error("Your cargo NOT ENOUGH " + (user.cargoData[cargoName] + b));
+            }
+            let Fee = this.bancorInfos.get(cargoName + 'Fee');
+            let c = A / K * (Math.exp(K * X) - Math.exp(K * (X + b)));
+            let money = new BigNumber(Math.floor(c * (1 - Fee) * 1e10) * 1e8);
+            this._transaction(userAddress, money);
+        }
+        //set x
+        X += b;
+        if (X < 0 && b < 0) {
+            throw new Error("Bid demand NOT ENOUGH." + X);
+        }
+        this.bancorInfos.set(cargoName + 'X', X);
+        //set User
+        this.allUsers.set(userAddress, user);
+        return {
+            "success": true,
+        };
+    },
+    setBancorInfo: function (cargoName, A, K, X, Fee) {
+        if (Blockchain.transaction.from != this.adminAddress) {
+            throw new Error("Permission denied.");
+        }
+        this.bancorInfos.set(cargoName + 'A', A);
+        this.bancorInfos.set(cargoName + 'K', K);
+        this.bancorInfos.set(cargoName + 'X', X);
+        this.bancorInfos.set(cargoName + 'Fee', Fee);
+        return {
+            "success": true,
+        };
+    },
+    getBancorInfo: function (cargoName) {
+        let A = this.bancorInfos.get(cargoName + 'A');
+        let K = this.bancorInfos.get(cargoName + 'K');
+        let X = this.bancorInfos.get(cargoName + 'X');
+        let Fee = this.bancorInfos.get(cargoName + 'Fee');
+        return {
+            cargoName: cargoName,
+            A: A,
+            K: K,
+            X: X,
+            Fee: Fee,
+        }
     },
 
     //=====Get
@@ -1411,12 +1539,13 @@ GameContract.prototype = {
         if (user === null) {
             throw new Error("User NOT FOUND.");
         }
-        let houseName = cargoName + 'house';
         let cap = 0;
         for (let key in user.buildingMap) {
             let bdg = user.buildingMap[key];
-            if (bdg && bdg.id === houseName) {
-                cap += this.getBuildingInfoItemWithLv(houseName, 'Capacity', bdg.lv);
+            if (!bdg) continue;
+            let info = this.allBuildingInfos.get(bdg.id);
+            if (info.HouseOf === cargoName) {
+                cap += this.getBuildingInfoItemWithLv(bdg.id, 'Capacity', bdg.lv);
             }
         }
         return cap;
