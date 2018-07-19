@@ -1340,6 +1340,11 @@ GameContract.prototype = {
                 throw new Error("Value NOT ENOUGH to buy. need " + c + ".You give " + value);
             }
             //return exceeded part
+            let returnMoney = (value - c * 1e18);
+            if (returnMoney > 1e-4) {
+                let returnWei = new BigNumber(Math.floor(returnMoney / 1e8) * 1e8);
+                this._transaction(userAddress, returnWei);
+            }
 
             //add cargo
             this._userAddCargo(user, cargoName, b);
