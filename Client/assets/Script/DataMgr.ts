@@ -3,7 +3,7 @@ import MathUtil from "./Utils/MathUtil";
 
 export class DataMgr {
 
-    static myData: UserData;
+    static myUser: UserData;
 
     static othersData = {};
     static allStars = [];
@@ -12,11 +12,23 @@ export class DataMgr {
     static BuildingConfig: BuildingInfo[];
     static CargoConfig: CargoInfo[];
 
-    static changed = false;
     static outputRates = {};
 
-    static shipSpeed = 100;
+    static pirateDatas = {};
+
+    static cityMoveSpeed = 150;
+    static raidCityCargoRate = 0.1;
+    static safeZoneLine = 1567;
+    static damagePerAttackCity = 0.1;
     static energyCostPerLyExpand = 0.01;
+    static nukemissSpeed = 3600;
+    static nukeRadius = 120;
+    static totalPirateCnt = 1000;
+    static pirateCargoC0 = 100;
+    static pirateArmyC0 = 10;
+    static piratePeriodTimestamp = 0;
+
+    static timestampOffset = 0;//区块链时间戳比本地系统时间快多少毫秒
 
     private static inited = false;
     static init() {
@@ -27,6 +39,10 @@ export class DataMgr {
             let starInfo = DataMgr.getStarInfo(index);
             this.allStars.push(starInfo);
         }
+    }
+
+    static getBlockchainTimestamp() {
+        return Number(new Date()) + this.timestampOffset;
     }
 
     static getUserCurrentLocation(user) {
@@ -71,6 +87,63 @@ export class DataMgr {
         starInfo.energyAbundance = (1 - b) * d;
         return starInfo;
     }
+    static getPirateInfo(index) {
+        if (index >= this.totalPirateCnt) {
+            throw new Error("index must < totalPirateCnt." + index + '<' + this.totalPirateCnt);
+        }
+        let curPeriodTimestamp = this.piratePeriodTimestamp;
+        let curTime = (new Date()).valueOf();
+        if (curTime / 3600e3 >= Math.floor(curPeriodTimestamp / 3600e3 + 1)) {
+            //newPeriod
+            curPeriodTimestamp = Math.floor(curTime / 3600e3) * 3600e3;
+            this.piratePeriodTimestamp = curPeriodTimestamp;
+        }
+        let seed = curPeriodTimestamp.toString() + index.toString();
+        let random = this.APHash1(seed);//0~1  
+        let lv = Math.floor(Math.pow(random, 3) * 15);//显示时+1
+        let cargoMainFactor = lv * lv;//物资与lv^2成正比
+        let armyMainFactor = lv * lv * lv;//部队数量与lv^3成正比
+
+        let a = (this.APHash1(seed + 'theta'));
+        let b = (this.APHash1(seed + 'rho'));
+        let theta = a * Math.PI * 2;
+        let l = Math.sqrt(b) * 5700;
+        let x = Math.cos(theta) * l;
+        let y = Math.sin(theta) * l;
+        let pirateInfo = {};
+        pirateInfo.x = x;
+        pirateInfo.y = y;
+        pirateInfo.lv = lv;
+        //cargo
+        let cargo = {};
+        let cargoFactors = {
+            silicon: 1,
+            carbon: 0.7,
+            iron: 0.5,
+            chip: 0.05,
+            deuter: 0.0001,
+            //floatmod: 0.04,
+        }
+        for (let key in cargoFactors) {
+            let c = (this.APHash1(seed + key));
+            cargo[key] = Math.round(this.pirateCargoC0 * cargoMainFactor * c * cargoFactors[key]);
+        }
+        cargo.floatmod = cargoMainFactor;
+        pirateInfo.cargo = cargo;
+        //army
+        let army = {};
+        let armyFactors = {
+            tank: 1,
+            chopper: 0.8,
+            ship: 0.2,
+        }
+        for (let key in armyFactors) {
+            let c = (this.APHash1(seed + key));
+            army[key] = Math.round(this.pirateArmyC0 * armyMainFactor * c * cargoFactors[key]);
+        }
+        pirateInfo.army = army;
+        return pirateInfo;
+    }
     static APHash1(str: string) {
         let hash = 0xAAAAAAAA;
         for (let i = 0; i < str.length; i++) {
@@ -103,7 +176,7 @@ export class DataMgr {
 
     static getUserWarehouseCap(cargoName) {
         let houseName = cargoName + 'house';
-        let user = DataMgr.myData;
+        let user = DataMgr.myUser;
         let cap = 0;
         for (let key in user.buildingMap) {
             let bdg = user.buildingMap[key];

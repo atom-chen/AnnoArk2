@@ -237,7 +237,7 @@ GameContract.prototype = {
         this.energyCostPerLyExpand = 0.01;
         this.nukemissSpeed = 3600;
         this.nukeRadius = 120;
-        this.totalPirateCnt = 300;
+        this.totalPirateCnt = 1000;
         this.pirateCargoC0 = 100;
         this.pirateArmyC0 = 10;
         this.piratePeriodTimestamp = 0;
@@ -1448,7 +1448,7 @@ GameContract.prototype = {
     getUser: function (address) {
         return this.allUsers.get(address);
     },
-    getPirateInfoteInfo: function (index) {
+    getPirateInfo: function (index) {
         if (index >= this.totalPirateCnt) {
             throw new Error("index must < totalPirateCnt." + index + '<' + this.totalPirateCnt);
         }
@@ -1461,19 +1461,20 @@ GameContract.prototype = {
         }
         let seed = curPeriodTimestamp.toString() + index.toString();
         let random = this.APHash1(seed);//0~1
-        let lv = random ^ 3 * 15;//显示时+1
+        let lv = Math.floor(Math.pow(random, 3) * 15);//显示时+1
         let cargoMainFactor = lv * lv;//物资与lv^2成正比
         let armyMainFactor = lv * lv * lv;//部队数量与lv^3成正比
 
         let a = (this.APHash1(seed + 'theta'));
         let b = (this.APHash1(seed + 'rho'));
         let theta = a * Math.PI * 2;
-        let l = Math.sqrt(b) * 5000;
+        let l = Math.sqrt(b) * 5700;
         let x = Math.cos(theta) * l;
         let y = Math.sin(theta) * l;
         let pirateInfo = {};
         pirateInfo.x = x;
         pirateInfo.y = y;
+        pirateInfo.lv = lv;
         //cargo
         let cargo = {};
         let cargoFactors = {
@@ -1561,6 +1562,10 @@ GameContract.prototype = {
     },
     getConst: function (constName) {
         return this[constName];
+    },
+    getTimestamp: function () {
+        let curTime = (new Date()).valueOf();
+        return curTime;
     },
     //=====Math
     _lerpVec2: function (a, b, t, clamp) {

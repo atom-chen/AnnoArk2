@@ -84,7 +84,7 @@ export default class CityUI extends BaseUI {
     onEnable() {
         this.refreshAll();
 
-        let myData = DataMgr.myData;
+        let myData = DataMgr.myUser;
         // for (let i = -Math.floor(myData.arkSize / 2); i < myData.arkSize / 2; i++) {
         //     for (let j = -Math.floor(myData.arkSize / 2); j < myData.arkSize / 2; j++) {
         //         let cell = this.cells[i][j];
@@ -115,19 +115,19 @@ export default class CityUI extends BaseUI {
     update(dt: number) {
 
         //刷新建筑
-        if (DataMgr.myData['ticks'] > this._lastRefreshTicks) {
-            this._lastRefreshTicks = DataMgr.myData['ticks'];
+        if (DataMgr.myUser['ticks'] > this._lastRefreshTicks) {
+            this._lastRefreshTicks = DataMgr.myUser['ticks'];
             this.refreshAll();
         }
 
-        let cargoData = DataMgr.getUserCurrentCargoData(DataMgr.myData);
+        let cargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);
         for (let i = 0; i < DataMgr.CargoConfig.length; i++) {
             const cargoInfo = DataMgr.CargoConfig[i];
             const cargoId = cargoInfo.id;
             let str: string;
             let warehouseCap = DataMgr.getUserWarehouseCap(cargoId).toFixed();
             if (DataMgr.getBuildingInfo(cargoId + 'coll')) {
-                let estimateRate = DataMgr.getUserCollectorRate(DataMgr.myData, cargoId + 'coll');
+                let estimateRate = DataMgr.getUserCollectorRate(DataMgr.myUser, cargoId + 'coll');
                 str = cargoInfo.Name + '   ' + Math.floor(cargoData[cargoInfo.id]).toFixed() +'/' + warehouseCap + '(' + (estimateRate > 0 ? '+' : '') + estimateRate.toFixed() + '/h)';
             } else {
                 str = cargoInfo.Name + '   ' + Math.floor(cargoData[cargoInfo.id]).toFixed() +'/' + warehouseCap;
@@ -169,7 +169,7 @@ export default class CityUI extends BaseUI {
                         let i = this.currentBlueprintIJ.i + di;
                         let j = this.currentBlueprintIJ.j + dj;
                         let key = i + ',' + j;
-                        if (DataMgr.myData.expandMap[key]) {
+                        if (DataMgr.myUser.expandMap[key]) {
                             ableToBuild = false;
                             break;
                         }
@@ -183,9 +183,9 @@ export default class CityUI extends BaseUI {
                 this.blueprint.setContentSize(100, 100);
                 this.blueprintIndicator.node.setContentSize(100, 100);
                 let key = this.currentBlueprintIJ.i + ',' + this.currentBlueprintIJ.j;
-                if (DataMgr.myData.buildingMap[key]) {
+                if (DataMgr.myUser.buildingMap[key]) {
                     ableToBuild = false;
-                } else if (!DataMgr.myData.expandMap[key]) {
+                } else if (!DataMgr.myUser.expandMap[key]) {
                     ableToBuild = false;
                 }
             }
@@ -211,7 +211,7 @@ export default class CityUI extends BaseUI {
 
     refreshBuildingData() {
         //floor
-        const expandMap = DataMgr.myData.expandMap;
+        const expandMap = DataMgr.myUser.expandMap;
         for (let key in expandMap) {
             expandMap[key].tmpDirty = true;
         }
@@ -236,7 +236,7 @@ export default class CityUI extends BaseUI {
             }
         }
         //building
-        const buildingMap = DataMgr.myData.buildingMap;
+        const buildingMap = DataMgr.myUser.buildingMap;
         for (let key in buildingMap) {
             buildingMap[key].tmpDirty = true;
         }
@@ -367,7 +367,7 @@ export default class CityUI extends BaseUI {
                     ijList.push([i, j]);
                 }
             }
-            BlockchainMgr.Instance.callFunction('expand', [ijList], DataMgr.getExpandCost(DataMgr.myData.expandCnt, 9) + 1e-5,
+            BlockchainMgr.Instance.callFunction('expand', [ijList], DataMgr.getExpandCost(DataMgr.myUser.expandCnt, 9) + 1e-5,
                 (resp) => {
                     if (resp.toString().substr(0, 5) != 'Error') {
                         DialogPanel.PopupWith2Buttons('正在递交扩建计划',
@@ -455,7 +455,7 @@ export default class CityUI extends BaseUI {
                 "需要" + ironCost + '铁',
                 '取消', null,
                 '升级', () => {
-                    if (DataMgr.getUserCurrentCargoData(DataMgr.myData)['iron'] < ironCost) {
+                    if (DataMgr.getUserCurrentCargoData(DataMgr.myUser)['iron'] < ironCost) {
                         ToastPanel.Toast("铁不足");
                         return;
                     }
@@ -478,7 +478,7 @@ export default class CityUI extends BaseUI {
     }
     //生产
     onProduceBtnClick() {
-        let data = DataMgr.myData.buildingMap[this.selectedBuilding.node.name];
+        let data = DataMgr.myUser.buildingMap[this.selectedBuilding.node.name];
         let curTime = Number(new Date());
 
         if (curTime < data.recoverTime) {
@@ -486,8 +486,8 @@ export default class CityUI extends BaseUI {
             return;
         }
 
-        ProductionPanel.Instance.node.active = true;
-        ProductionPanel.Instance.setAndRefresh(this.selectedBuilding, DataMgr.myData.buildingMap[this.selectedBuilding.node.name]);
+        CvsMain.OpenPanel(ProductionPanel);
+        ProductionPanel.Instance.setAndRefresh(this.selectedBuilding, DataMgr.myUser.buildingMap[this.selectedBuilding.node.name]);
 
     }
 }

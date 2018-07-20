@@ -29,7 +29,7 @@ export default class IslandInfoFrame extends cc.Component {
         let speed = data.miningRate * curMoney / 1e18;
         this.lblMiningSpeed.string = CurrencyFormatter.formatNAS(speed) + 'NAS/小时';
         if (data.occupant && data.occupant.length > 0) {
-            let occupant = data.occupant == DataMgr.myData.address ? DataMgr.myData : DataMgr.othersData[data.occupant];
+            let occupant = data.occupant == DataMgr.myUser.address ? DataMgr.myUser : DataMgr.othersData[data.occupant];
             this.lblOccupant.string = (occupant ? occupant.nickname : data.occupant);
         } else {
             this.lblOccupant.string = '(无)';

@@ -14,6 +14,7 @@ import SponsorIslandPanel from "./UI/SponsorIslandPanel";
 import IslandInfoFrame from "./UI/IslandInfoFrame";
 import ToastPanel from "./UI/ToastPanel";
 import { SpecialArk } from "./World/SpecialArk";
+import Pirate from "./World/Pirate";
 
 const { ccclass, property } = cc._decorator;
 
@@ -49,9 +50,14 @@ export default class WorldUI extends BaseUI {
     islandContainer: cc.Node = null;
 
     @property(cc.Node)
-    arkContainer: cc.Node = null;
+    cityContainer: cc.Node = null;
     @property(cc.Node)
-    arkTemplate: cc.Node = null;
+    cityTemplate: cc.Node = null;
+
+    @property(cc.Node)
+    pirateContainer: cc.Node = null;
+    @property(cc.Node)
+    pirateTemplate: cc.Node = null;
 
     @property(cc.Node)
     worldMap: cc.Node = null;
@@ -78,12 +84,13 @@ export default class WorldUI extends BaseUI {
     pressingZoomSlider = false;
     zoomScale: number = 0.1;
 
+    refreshCountdown = 0;
 
     onEnable() {
         this.editSailDestinationMode = false;
         this.selectedObjectNode = null;
 
-        if (!DataMgr.myData) return;
+        if (!DataMgr.myUser) return;
 
         try {
             this.refreshData();
@@ -91,38 +98,60 @@ export default class WorldUI extends BaseUI {
         } catch (e) {
             console.error(e);
         }
+
+        this.cityTemplate.active = false;
+        this.pirateTemplate.active = false;
     }
     onBtnBackClick() {
         CvsMain.EnterUI(HomeUI);
     }
 
     refreshData() {
-        //myData
+        //cities
         let neededCount = Object.keys(DataMgr.othersData).length + 1;
-        for (let i = this.arkContainer.childrenCount; i < neededCount; i++) {
-            let arkNode = cc.instantiate(this.arkTemplate);
-            arkNode.parent = this.arkContainer;
+        for (let i = this.cityContainer.childrenCount; i < neededCount; i++) {
+            let node = cc.instantiate(this.cityTemplate);
+            node.parent = this.cityContainer;
+            node.active = true;
         }
         let needToDestroys: cc.Node[] = [];
-        for (let i = neededCount; i < this.arkContainer.childrenCount; i++) {
-            needToDestroys.push(this.arkContainer.children[i]);
+        for (let i = neededCount; i < this.cityContainer.childrenCount; i++) {
+            needToDestroys.push(this.cityContainer.children[i]);
         }
         needToDestroys.forEach(c => c.destroy());
 
-        let arkIW = this.arkContainer.children[0].getComponent(ArkInWorld);
-        arkIW.setAndRefresh(DataMgr.myData, this.zoomScale);
+        let arkIW = this.cityContainer.children[0].getComponent(ArkInWorld);
+        arkIW.setAndRefresh(DataMgr.myUser, this.zoomScale);
         let i = 0;
         for (let address in DataMgr.othersData) {
             const data = DataMgr.othersData[address];
-            this.arkContainer.children[i + 1].getComponent(ArkInWorld).
+            this.cityContainer.children[i + 1].getComponent(ArkInWorld).
                 setAndRefresh(data, this.zoomScale);
             i++;
         }
+
+        //Pirate
+        neededCount = DataMgr.totalPirateCnt;
+        for (let i = this.pirateContainer.childrenCount; i < neededCount; i++) {
+            let node = cc.instantiate(this.pirateTemplate);
+            node.parent = this.pirateContainer;
+            node.active = true;
+        }
+        needToDestroys = [];
+        for (let i = neededCount; i < this.pirateContainer.childrenCount; i++) {
+            needToDestroys.push(this.pirateContainer.children[i]);
+        }
+        needToDestroys.forEach(c => c.destroy());
+        for (let i = 0; i < neededCount; i++) {
+            this.pirateContainer.children[i].getComponent(Pirate).setAndRefresh(i, DataMgr.getPirateInfo(i), DataMgr.pirateDatas[i], this.zoomScale);
+        }
+
+        this.refreshCountdown = 2;
     }
 
-    refreshMyArk() {
-        let arkIW = this.arkContainer.children[0].getComponent(ArkInWorld);
-        arkIW.setAndRefresh(DataMgr.myData, this.zoomScale);
+    refreshMyCity() {
+        let arkIW = this.cityContainer.children[0].getComponent(ArkInWorld);
+        arkIW.setAndRefresh(DataMgr.myUser, this.zoomScale);
     }
 
     refreshZoom() {
@@ -137,10 +166,16 @@ export default class WorldUI extends BaseUI {
     }
 
     update(dt: number) {
-        if (DataMgr.changed || MainCtrl.Ticks % 100 == 0) {
-            this.refreshData();
-            DataMgr.changed = false;
+
+        if (this.refreshCountdown < 0) {
+            try {
+                this.refreshData();
+            } catch (e) {
+                console.error(e);
+            }
         }
+        this.refreshCountdown -= dt;
+
         let prog = this.sldZoom.progress;
         if (!this.pressingZoomSlider) {
             if (prog > 0.5) {
@@ -176,7 +211,7 @@ export default class WorldUI extends BaseUI {
             } else if (island) {
                 this.btnSponsorLink.getComponentInChildren(cc.Label).string =
                     island.data.sponsorName ? island.data.sponsorName : '无赞助商';
-                if (island.data.occupant && island.data.occupant == DataMgr.myData.address) {
+                if (island.data.occupant && island.data.occupant == DataMgr.myUser.address) {
                     this.lblAttackButton.string = '追加\n驻军';
                     const t0 = island.data.lastMineTime;
                     const t1 = Number(new Date());
@@ -206,10 +241,10 @@ export default class WorldUI extends BaseUI {
             this.grpSail.active = true;
             this.sailDestinationIndicator.active = this.newDestination != null;
             if (this.newDestination) {
-                let pos = new cc.Vec2(DataMgr.myData.currentLocation.x, DataMgr.myData.currentLocation.y);
+                let pos = new cc.Vec2(DataMgr.myUser.currentLocation.x, DataMgr.myUser.currentLocation.y);
                 let distance = this.newDestination.sub(pos).mag();
                 let time = distance / DataMgr.getArkSpeedByTech(DataMgr.myTechData.find(d => d.id == 'arkspeed1011').finished);
-                let methane = DataMgr.MethaneCostPerKmPerSize * distance * DataMgr.myData.arkSize;
+                let methane = DataMgr.MethaneCostPerKmPerSize * distance * DataMgr.myUser.arkSize;
                 let str = `${distance.toFixed()}km\n${time.toFixed()}min\n${methane.toFixed()}甲烷`;
                 this.lblDestinationInfo.string = str;
             }
@@ -224,7 +259,7 @@ export default class WorldUI extends BaseUI {
     }
 
     onCenterBtnClick() {
-        let data = DataMgr.myData;
+        let data = DataMgr.myUser;
         let rawPos = data.currentLocation;
         rawPos.mulSelf(this.zoomScale);
         this.worldMap.position = rawPos.neg();
@@ -291,7 +326,7 @@ export default class WorldUI extends BaseUI {
     onSelectObjectInfoClick() {
         let speArk = this.selectedObjectNode.getComponent(SpecialArk);
         if (speArk) {
-            let pos = new cc.Vec2(DataMgr.myData.currentLocation.x, DataMgr.myData.currentLocation.y);
+            let pos = new cc.Vec2(DataMgr.myUser.currentLocation.x, DataMgr.myUser.currentLocation.y);
             let dist = pos.sub(speArk.location).mag();
             speArk.showInfo(dist);
         }
@@ -299,13 +334,13 @@ export default class WorldUI extends BaseUI {
     onBtnAttackIslandClick() {
         const island = this.selectedObjectNode ? this.selectedObjectNode.getComponent(Island) : null;
         if (!island) return;
-        AttackIslandPanel.Instance.node.active = true;
+        CvsMain.OpenPanel(AttackIslandPanel);
         AttackIslandPanel.Instance.setAndRefresh(island);
     }
     onBtnCollectIslandClick() { //收获
         const island = this.selectedObjectNode ? this.selectedObjectNode.getComponent(Island) : null;
         if (!island) return;
-        if (island.data.occupant == DataMgr.myData.address) {
+        if (island.data.occupant == DataMgr.myUser.address) {
             BlockchainMgr.Instance.collectIslandMoney(island.data.id);
         }
     }
@@ -318,7 +353,7 @@ export default class WorldUI extends BaseUI {
     onIslandIWantSponsorClick() {
         const island = this.selectedObjectNode ? this.selectedObjectNode.getComponent(Island) : null;
         if (island) {
-            SponsorIslandPanel.Instance.node.active = true;
+            CvsMain.OpenPanel(SponsorIslandPanel);
             SponsorIslandPanel.Instance.setData(island);
         }
     }
@@ -342,7 +377,7 @@ export default class WorldUI extends BaseUI {
         this.editSailDestinationMode = true;
         this.newDestination = null;
         const arkSpeedTechData = DataMgr.myTechData.find(d => d.id == 'arkspeed1011');
-        const myData = DataMgr.myData;
+        const myData = DataMgr.myUser;
         myData.speed = DataMgr.getArkSpeedByTech(arkSpeedTechData ? arkSpeedTechData.finished : false);
     }
     onCancelSailClick() {
@@ -354,14 +389,14 @@ export default class WorldUI extends BaseUI {
             ToastPanel.Toast('请先点击地图空白位置，选择目的地，再点√');
             return;
         }
-        const myData = DataMgr.myData;
+        const myData = DataMgr.myUser;
         if (myData.arkSize <= DataMgr.SmallArkSize) {
             DialogPanel.PopupWith1Button('简陋方舟无法航行', '您的方舟是简陋方舟，没有扩建功能，请原地呆着吧。\n想要功能完整的方舟？请回到主界面领取标准方舟或大型方舟。需要安装星云钱包哦！', '知道了', null);
             return;
         }
-        let pos = new cc.Vec2(DataMgr.myData.currentLocation.x, DataMgr.myData.currentLocation.y);
+        let pos = new cc.Vec2(DataMgr.myUser.currentLocation.x, DataMgr.myUser.currentLocation.y);
         let distance = this.newDestination.sub(pos).mag();
-        let needMethane = DataMgr.MethaneCostPerKmPerSize * distance * DataMgr.myData.arkSize;
+        let needMethane = DataMgr.MethaneCostPerKmPerSize * distance * DataMgr.myUser.arkSize;
         let methaneData = DataMgr.myCargoData.find(d => d.id == 'methane74');
         if (needMethane > methaneData.amount) {
             DialogPanel.PopupWith1Button('燃料不足', '方舟引擎的唯一动力来源是甲烷。如果你想要环球旅行，多造一些[甲烷采集器]吧！', '知道了', null);
