@@ -175,6 +175,7 @@ export default class BlockchainMgr extends cc.Component {
         let user = JSON.parse(resp.result);
         if (user) {
             DataMgr.myUser = user;
+            user.ticks = MainCtrl.Ticks;
             DataMgr.allUsers[user.address] = DataMgr.myUser;
         }
     }

@@ -16,12 +16,12 @@ export default class Pirate extends cc.Component {
     index: number;
     data; //可能为空
 
-    setAndRefresh(index, info, data, zoomScale: number) {
+    setAndRefresh(index, data, zoomScale: number) {
         this.index = index;
         this.data = data;
         // this.sprArk.node.setContentSize(data.arkSize, data.arkSize);
         this.lblName.string = '海盗';
-        this.lblLv.string = (info.lv + 1).toString();
+        this.lblLv.string = (data.lv + 1).toString();
         this.refreshZoom(zoomScale);
     }
 

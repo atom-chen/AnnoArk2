@@ -15,6 +15,8 @@ import IslandInfoFrame from "./UI/IslandInfoFrame";
 import ToastPanel from "./UI/ToastPanel";
 import { SpecialArk } from "./World/SpecialArk";
 import Pirate from "./World/Pirate";
+import WatchPiratePanel from "./UI/WatchPiratePanel";
+import AttackPiratePanel from "./UI/AttackPiratePanel";
 
 const { ccclass, property } = cc._decorator;
 
@@ -164,7 +166,7 @@ export default class WorldUI extends BaseUI {
             }
             needToDestroys.forEach(c => c.destroy());
             for (let i = 0; i < neededCount; i++) {
-                this.pirateContainer.children[i].getComponent(Pirate).setAndRefresh(i, DataMgr.getPirateInfo(i), DataMgr.getPirateData(i), this.zoomScale);
+                this.pirateContainer.children[i].getComponent(Pirate).setAndRefresh(i, DataMgr.getPirateData(i), this.zoomScale);
             }
             this.pirateContainer.active = true;
         } else {
@@ -247,7 +249,11 @@ export default class WorldUI extends BaseUI {
 
                 this.focusedInfoFrame.position = this.focusedObjectNode.position;
                 this.lblSelectInfo0.string = `Lv ${pirate.data.lv + 1}`;
-                this.lblSelectInfo1.string = `坦克 ${pirate.data.army.tank ? pirate.data.army.tank.toFixed() : 0}\n浮力模块 ${pirate.data.cargo.floatmod ? pirate.data.cargo.floatmod.toFixed() : 0}`;
+                this.lblSelectInfo1.string =
+                    `坦克 ${pirate.data.army.tank ? pirate.data.army.tank.toFixed() : 0}
+无人机 ${pirate.data.army.tank ? pirate.data.army.tank.toFixed() : 0}
+炮舰 ${pirate.data.army.tank ? pirate.data.army.tank.toFixed() : 0}
+浮力模块 ${pirate.data.cargo.floatmod ? pirate.data.cargo.floatmod.toFixed() : 0}`;
             } else if (island) {
                 this.btnSponsorLink.getComponentInChildren(cc.Label).string =
                     island.data.sponsorName ? island.data.sponsorName : '无赞助商';
@@ -259,7 +265,7 @@ export default class WorldUI extends BaseUI {
                     const r = island.data.miningRate;
                     const m = island.data.money * (1 - Math.exp(-r * t)) / 1e18;
                     this.btnCollectIsland.node.active = true;
-                    this.btnCollectIsland.getComponentInChildren(cc.Label).string = '收取\n' + CurrencyFormatter.formatNAS(m) + 'NAS';
+                    this.btnCollectIsland.getComponentInChildren(cc.Label).string = '收取\n' + CurrencyFormatter.formatNAS(m) + DataMgr.coinUnit;
                 } else {
                     this.lblAttackButton.string = '攻占';
                     this.btnCollectIsland.node.active = false;
@@ -446,6 +452,27 @@ export default class WorldUI extends BaseUI {
         });
     }
 
+    //海盗
+    onWatchPirateClick() {
+        if (this.focusedObjectNode) {
+            const pirate = this.focusedObjectNode.getComponent(Pirate);
+            if (pirate) {
+                DataMgr.fetchPirateDataFromBlockchain(pirate.index);
+                CvsMain.OpenPanel(WatchPiratePanel);
+                WatchPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+            }
+        }
+    }
+    onAttackPirateClick() {
+        if (this.focusedObjectNode) {
+            const pirate = this.focusedObjectNode.getComponent(Pirate);
+            if (pirate) {
+                DataMgr.fetchPirateDataFromBlockchain(pirate.index);
+                CvsMain.OpenPanel(AttackPiratePanel);
+                AttackPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+            }
+        }
+    }
 
     //岛屿初始化
     @property(cc.Node)

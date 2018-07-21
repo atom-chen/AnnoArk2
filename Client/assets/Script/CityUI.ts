@@ -36,20 +36,14 @@ export default class CityUI extends BaseUI {
         this.panPad.on(cc.Node.EventType.MOUSE_WHEEL, this.onMouseWheel, this);
         this.panPad.on(cc.Node.EventType.TOUCH_END, this.deselectBuilding, this);
 
-        // this.cells = [];
-        // for (let i = -200; i <= -1; i++) {
-        //     this.cells[i] = [];
-        //     for (let j = -100; j < 100; j++) {
-        //         this.cells[i][j] = new Cell();
-        //     }
-        // }
-
         this.blueprint.on(cc.Node.EventType.TOUCH_MOVE, this.dragBlueprint.bind(this));
 
         this.floorTemplate.active = false;
+        this.hqTemplate.active = false;
         this.producerTemplate.active = false;
         this.collectorTemplate.active = false;
         this.warehouseTemplate.active = false;
+        this.launchsiloTemplate.active = false;
     }
 
     @property(cc.Node)
@@ -83,28 +77,6 @@ export default class CityUI extends BaseUI {
 
     onEnable() {
         this.refreshAll();
-
-        let myData = DataMgr.myUser;
-        // for (let i = -Math.floor(myData.arkSize / 2); i < myData.arkSize / 2; i++) {
-        //     for (let j = -Math.floor(myData.arkSize / 2); j < myData.arkSize / 2; j++) {
-        //         let cell = this.cells[i][j];
-        //         cell.isLand = true;
-        //         cell.building = null;
-        //     }
-        // }
-
-        // this.buildingContainer.destroyAllChildren();
-        // let workers = 0;
-        // DataMgr.myBuildingData.forEach(data => {
-        //     let info = DataMgr.BuildingConfig.find(i => i.id == data.id);
-        //     console.log('precreatebuilding', data);
-        //     this.createBuilding(info, data);
-        //     workers += data.workers;
-        // });
-
-        // DataMgr.idleWorkers = myData.population - workers;
-
-        // this.deselectBuilding();
     }
 
     refreshZoom() {
@@ -125,12 +97,12 @@ export default class CityUI extends BaseUI {
             const cargoInfo = DataMgr.CargoConfig[i];
             const cargoId = cargoInfo.id;
             let str: string;
-            let warehouseCap = DataMgr.getUserWarehouseCap(cargoId).toFixed();
+            let warehouseCap = DataMgr.getUserWarehouseCap(DataMgr.myUser, cargoId).toFixed();
             if (DataMgr.getBuildingInfo(cargoId + 'coll')) {
                 let estimateRate = DataMgr.getUserCollectorRate(DataMgr.myUser, cargoId + 'coll');
-                str = cargoInfo.Name + '   ' + Math.floor(cargoData[cargoInfo.id]).toFixed() +'/' + warehouseCap + '(' + (estimateRate > 0 ? '+' : '') + estimateRate.toFixed() + '/h)';
+                str = cargoInfo.Name + '   ' + Math.floor(cargoData[cargoInfo.id]).toFixed() + '/' + warehouseCap + '(' + (estimateRate > 0 ? '+' : '') + estimateRate.toFixed() + '/min)';
             } else {
-                str = cargoInfo.Name + '   ' + Math.floor(cargoData[cargoInfo.id]).toFixed() +'/' + warehouseCap;
+                str = cargoInfo.Name + '   ' + Math.floor(cargoData[cargoInfo.id]).toFixed() + '/' + warehouseCap;
             }
             this.cargoLabels[cargoInfo.id].string = str;
         }
@@ -169,7 +141,7 @@ export default class CityUI extends BaseUI {
                         let i = this.currentBlueprintIJ.i + di;
                         let j = this.currentBlueprintIJ.j + dj;
                         let key = i + ',' + j;
-                        if (DataMgr.myUser.expandMap[key]) {
+                        if (DataMgr.getCityIJExpanded(DataMgr.myUser, i, j)) {
                             ableToBuild = false;
                             break;
                         }
@@ -185,7 +157,7 @@ export default class CityUI extends BaseUI {
                 let key = this.currentBlueprintIJ.i + ',' + this.currentBlueprintIJ.j;
                 if (DataMgr.myUser.buildingMap[key]) {
                     ableToBuild = false;
-                } else if (!DataMgr.myUser.expandMap[key]) {
+                } else if (!DataMgr.getCityIJExpanded(DataMgr.myUser, this.currentBlueprintIJ.i, this.currentBlueprintIJ.j)) {
                     ableToBuild = false;
                 }
             }
@@ -259,8 +231,8 @@ export default class CityUI extends BaseUI {
             if (buildingMap[key].tmpDirty) {
                 const data = buildingMap[key];
                 let info = DataMgr.getBuildingInfo(data.id);
-                let prefabName = info['Prefab'];
-                let buildingNode = cc.instantiate(this[prefabName + 'Template']);
+                let prefabName = info['Type'] + 'Template';
+                let buildingNode = cc.instantiate(this[prefabName]);
                 buildingNode.parent = this.buildingContainer;
                 buildingNode.name = key;
                 let building = buildingNode.getComponent(Building);
@@ -280,8 +252,8 @@ export default class CityUI extends BaseUI {
     }
     onBuildBtnClick() {
         this.deselectBuilding();
-        BuildPanel.Show();
-        TechPanel.Hide();
+        CvsMain.OpenPanel(BuildPanel);
+        console.log('oBBC')
     }
     onCommanderClick() {
 
@@ -321,11 +293,15 @@ export default class CityUI extends BaseUI {
     @property(cc.Node)
     floorContainer: cc.Node = null;
     @property(cc.Node)
+    hqTemplate: cc.Node = null;
+    @property(cc.Node)
     collectorTemplate: cc.Node = null;
     @property(cc.Node)
     producerTemplate: cc.Node = null;
     @property(cc.Node)
     warehouseTemplate: cc.Node = null;
+    @property(cc.Node)
+    launchsiloTemplate: cc.Node = null;
     @property(cc.Node)
     buildingContainer: cc.Node = null;
     @property(cc.Node)
@@ -408,7 +384,7 @@ export default class CityUI extends BaseUI {
     @property(cc.Node)
     nodProduceButton: cc.Node = null;
     selectBuilding(building: Building) {
-        console.log('选中建筑', building);
+        console.log('选中建筑', building.name);
         this.selectedBuilding = building;
     }
     deselectBuilding() {
@@ -480,14 +456,11 @@ export default class CityUI extends BaseUI {
     onProduceBtnClick() {
         let data = DataMgr.myUser.buildingMap[this.selectedBuilding.node.name];
         let curTime = Number(new Date());
-
-        if (curTime < data.recoverTime) {
-            ToastPanel.Toast('生产设施尚未冷却');
-            return;
-        }
-
-        CvsMain.OpenPanel(ProductionPanel);
+        ProductionPanel.Instance.node.active = true;
         ProductionPanel.Instance.setAndRefresh(this.selectedBuilding, DataMgr.myUser.buildingMap[this.selectedBuilding.node.name]);
+    }
 
+    onTradeBtnClick() {
+        // TransferPanel.Instance.node.active = true;
     }
 }

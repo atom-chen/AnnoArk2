@@ -35,11 +35,11 @@ export default class CvsMain extends cc.Component {
                 panelType.Instance.node.active = true;
                 return;
             }
-            cc.loader.loadRes("Prefabs/Panels/" +  panelType.name, cc.Prefab, function (err, prefab) {
+            cc.loader.loadRes("Prefabs/Panels/" + panelType.name, cc.Prefab, function (err, prefab) {
                 if (!err) {
                     let node: cc.Node = cc.instantiate(prefab);
                     node.parent = CvsMain.Instance.panelContainer;
-                }else{
+                } else {
                     console.error('err45', err);
                 }
             });

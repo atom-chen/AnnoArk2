@@ -4,6 +4,8 @@ import BlockchainMgr from "./BlockchainMgr";
 
 export class DataMgr {
 
+    static coinUnit = 'GAS';
+
     static myUser: UserData;
 
     static allUsers = {};
@@ -37,6 +39,7 @@ export class DataMgr {
     }
 
     static getBlockchainTimestamp() {
+        console.log('getBlockchainTimestamp', Number(new Date()), this.timestampOffset, Number(new Date()) + this.timestampOffset);
         return Number(new Date()) + this.timestampOffset;
     }
 
@@ -73,8 +76,14 @@ export class DataMgr {
     static getCargoInfo(id: string) {
         return DataMgr.CargoConfig.find(info => info.id == id);
     }
+    static getCityIJExpanded(user, i, j) {
+        if (Math.abs(i) <= 4 && Math.abs(j) <= 4) {
+            return {};
+        }
+        return user.expandMap[i + ',' + j]
+    }
 
-    static getPirateInfo(index) {
+    private static getPirateInfo(index) {
         if (index >= this.totalPirateCnt) {
             throw new Error("index must < totalPirateCnt." + index + '<' + this.totalPirateCnt);
         }
@@ -144,9 +153,9 @@ export class DataMgr {
         let pirate = this.allPirates[pirateIndex];
         if (!pirate) {
             pirate = {};
-            pirate.index = pirateIndex;
             pirate.respawnTimestamp = 0;
         }
+        pirate.index = pirateIndex;
         let info = this.getPirateInfo(pirateIndex);
         pirate.__proto__ = info;
         if (pirate.respawnTimestamp < this.piratePeriodTimestamp) {
@@ -199,12 +208,13 @@ export class DataMgr {
     }
 
     static getUserWarehouseCap(user: UserData, cargoName) {
-        let houseName = cargoName + 'house';
         let cap = 0;
         for (let key in user.buildingMap) {
             let bdg = user.buildingMap[key];
-            if (bdg && bdg.id === houseName) {
-                cap += this.getBuildingInfoItemWithLv(houseName, 'Capacity', bdg.lv);
+            if (!bdg) continue;
+            let info = this.getBuildingInfo(bdg.id);
+            if (info && info.HouseOf == cargoName) {
+                cap += this.getBuildingInfoItemWithLv(bdg.id, 'Capacity', bdg.lv);
             }
         }
         return cap;

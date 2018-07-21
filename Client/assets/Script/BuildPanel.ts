@@ -1,4 +1,4 @@
-import { DataMgr } from "./DataMgr";
+import { DataMgr, IJ } from "./DataMgr";
 import BuildingButton from "./BuildingButton";
 import CityUI from "./CityUI";
 
@@ -7,10 +7,7 @@ const {ccclass, property} = cc._decorator;
 @ccclass
 export default class BuildPanel extends cc.Component {
     static Instance: BuildPanel;
-    onLoad() {
-        BuildPanel.Instance = this;
-        this.node.active = false;
-    }
+    onLoad() { BuildPanel.Instance = this; }
 
     @property(cc.Node)
     buttonContainer: cc.Node = null;
@@ -36,18 +33,14 @@ export default class BuildPanel extends cc.Component {
 
     }
 
-    static Show() {
-        BuildPanel.Instance.node.active = true;
-    }
-    static Hide() {
-        BuildPanel.Instance.node.active = false;
-    }
-
     onBtnExpandClick() {
-        CityUI.Instance.onBtnExpandClick();
+        CityUI.Instance.currentHoldingBlueprint = 'expand';
+        CityUI.Instance.currentBlueprintIJ = IJ.ZERO;
+        this.close();
     }
 
     close() {
-        this.node.active = false;
+        this.node.destroy();
+        BuildPanel.Instance = null;
     }
 }

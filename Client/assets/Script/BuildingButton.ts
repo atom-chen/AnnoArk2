@@ -1,8 +1,8 @@
 import BuildPanel from "./BuildPanel";
-import CityUI from "./CityUI";
 import { BuildingInfo, DataMgr, TechInfo } from "./DataMgr";
-import DialogPanel from "./DialogPanel";
-import BuildingInfoPanel from "./UI/BuildingInfoPanel";
+import CityUI from "./CityUI";
+import CvsMain from "./CvsMain";
+import ToastPanel from "./UI/ToastPanel";
 
 const { ccclass, property } = cc._decorator;
 
@@ -11,10 +11,6 @@ export default class BuildingButton extends cc.Component {
 
     @property(cc.Label)
     lblName: cc.Label = null;
-    @property(cc.Label)
-    lblSize: cc.Label = null;
-    @property(cc.Node)
-    sprSize: cc.Node = null;
 
     @property(cc.Label)
     lblConsumption: cc.Label = null;
@@ -24,82 +20,38 @@ export default class BuildingButton extends cc.Component {
     setAndRefresh(info: BuildingInfo) {
         this.info = info;
         this.lblName.string = info.Name;
-        this.lblSize.string = info.Length + '*' + info.Width;
-        this.sprSize.setContentSize(info.Length * 12, info.Width * 12);
-
-        let strInfoLines = [];
-        for (let i = 0; i < 4; i++) {
-            const rawid = info['BuildMat' + i];
-            if (rawid && rawid.length > 0) {
-                const count = info['BuildMat' + i + 'Count'];
-                const cargoInfo = DataMgr.CargoConfig.find(c => c.id == rawid);
-                strInfoLines.push(`${cargoInfo.Name}*${count}`);
-            }
-        }
-        if (strInfoLines.length > 0) {
-            let str = strInfoLines[0];
-            for (let i = 1; i < strInfoLines.length; i++) {
-                const line = strInfoLines[i];
-                str += '\n' + line;
-            }
-            this.lblConsumption.string = str;
-        } else {
-            this.lblConsumption.string = '';
-        }
-
+        let ironCost = info.IronCost;
+        this.lblConsumption.string = '原料 ' + ironCost + '铁';
     }
 
     onClick() {
-        BuildingInfoPanel.Show(this.info);
+        // BuildingInfoPanel.Show(this.info);
+        this.onBuildClick();
     }
 
     onBuildClick() {
         //检查建筑材料
-        let buildMats = [];
-        for (let i = 0; i < 4; i++) {
-            let mat = this.info['BuildMat' + i];
-            if (mat && mat.length > 0) {
-                let count = this.info['BuildMat' + i + 'Count'];
-                buildMats.push([mat, count]);
+        let info = this.info;
+        let curCargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);
+        //check cargo & consume cargo
+        let cargoEnough = true;
+        for (let i = 0; i < 3; i++) {
+            let itemName = "BuildMat" + i;
+            let cargoName = info[itemName];
+            if (cargoName) {
+                let cntItemName = itemName + "Cnt";
+                let needCnt = info[cntItemName];
+                if (curCargoData[cargoName] < needCnt) {
+                    cargoEnough = false;
+                }
             }
-        }
-        let enough = true;
-        buildMats.forEach(mat => {
-            let cargoData = DataMgr.myCargoData.find(data => data.id == mat[0]);
-            if (cargoData.amount < mat[1]) {
-                enough = false;
-            }
-        })
-
-        if (!enough) {
-            DialogPanel.PopupWith1Button('建筑材料不足', '', '确定', null);
-            return;
         }
 
-        //检查依赖科技
-        let needTechs = [];
-        for (let i = 0; i < 4; i++) {
-            let tech = this.info['NeedTech' + i];
-            if (tech && tech.length > 0) {
-                needTechs.push(tech);
-            }
-        }
-        enough = true;
-        let lackTechNames = [];
-        needTechs.forEach(tech => {
-            let techData = DataMgr.myTechData.find(data => data.id == tech);
-            if (!techData.finished) {
-                enough = false;
-                let techInfo = DataMgr.TechConfig.find(info => info.id == tech);
-                lackTechNames.push(techInfo.Name);
-            }
-        })
-        if (!enough) {
-            DialogPanel.PopupWith1Button('尚未研究所需科技', lackTechNames.join(', '), '确定', null);
-            return;
+        if (!cargoEnough) {
+            ToastPanel.Toast('某些货物不足。如果强行发送区块链交易，可能失败。');
         }
 
-        BuildPanel.Hide();
+        CvsMain.ClosePanel(BuildPanel);
         CityUI.Instance.enterBuildMode(this.info);
     }
 }

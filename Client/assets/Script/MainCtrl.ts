@@ -13,11 +13,11 @@ export default class MainCtrl extends cc.Component {
         CvsMain.Instance.uiContainer.getChildByName('WorldUI').active = true;
 
         //加载数据
-        cc.loader.loadRes('Building', function (txt) {
+        cc.loader.loadRes('Building', function (err, txt) {
             console.log('Building loaded', txt);
             DataMgr.BuildingConfig = txt;
         }.bind(this));
-        cc.loader.loadRes('Cargo', function (txt) {
+        cc.loader.loadRes('Cargo', function (err, txt) {
             console.log('Cargo loaded', txt);
             DataMgr.CargoConfig = txt;
         }.bind(this));
