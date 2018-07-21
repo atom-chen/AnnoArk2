@@ -1,7 +1,7 @@
 import CvsMain from "./CvsMain";
 import BaseUI from "./BaseUI";
 import MainCtrl from "./MainCtrl";
-import { DataMgr, UserData, CargoData, TechData } from "./DataMgr";
+import { DataMgr, UserData, CargoData, TechData, LocationData } from "./DataMgr";
 import WorldUI from "./WorldUI";
 import ToastPanel from "./UI/ToastPanel";
 import BlockchainMgr from "./BlockchainMgr";
@@ -21,7 +21,6 @@ export default class HomeUI extends BaseUI {
 
     @property(cc.Label)
     lblTotalArkCount: cc.Label = null;
-
     @property(cc.Label)
     lblNickname: cc.Label = null;
     @property(cc.Label)
@@ -33,13 +32,13 @@ export default class HomeUI extends BaseUI {
     @property(cc.Label)
     lblMusicButton: cc.Label = null;
 
-    @property(cc.Label)
-    lblBlockchainAddress: cc.Label = null;
+    @property(cc.EditBox)
+    edtBlockchainAddress: cc.EditBox = null;
 
     refreshCountdown = 0;
 
     start() {
-        ToastPanel.Toast('正在读取您的钱包信息，如果您在用钱包玩游戏，请稍候');
+        ToastPanel.Toast('正在读取您的钱包信息，请稍候');
     }
 
     update(dt) {
@@ -57,9 +56,8 @@ export default class HomeUI extends BaseUI {
             if (DataMgr.myUser.country) this.country = DataMgr.myUser.country;
             this.lblLv.string = 'Level ' + (Math.floor(Math.pow(DataMgr.myUser.expandCnt, 0.5)) + 1).toFixed();
         }
-        this.lblBlockchainAddress.string = BlockchainMgr.WalletAddress ? BlockchainMgr.WalletAddress : '未获取到钱包地址';
         FlagMgr.setFlag(this.sprFlag, this.country);
-        this.lblTotalArkCount.string = (Object.keys(DataMgr.othersData).length + 1).toFixed();
+        this.lblTotalArkCount.string = (Object.keys(DataMgr.allUsers).length).toFixed();
 
         this.refreshCountdown = 1;
 
@@ -113,7 +111,7 @@ export default class HomeUI extends BaseUI {
         }
     }
 
-    onAddressClick() {
+    onExplorerClick() {
         window.open('https://explorer.nebulas.io/address/' + BlockchainMgr.WalletAddress);
     }
 
@@ -121,11 +119,11 @@ export default class HomeUI extends BaseUI {
         console.log('哪有白皮书')
     }
 
-    onBtnClearStorageClick() {
-        cc.sys.localStorage.clear();
-        setTimeout(() => location.reload(), 100);
-        console.log('成功清除存储');
-    }
+    // onBtnClearStorageClick() {
+    //     cc.sys.localStorage.clear();
+    //     setTimeout(() => location.reload(), 100);
+    //     console.log('成功清除存储');
+    // }
 
     onBtnSwitchMusicClick() {
         const as = MainCtrl.Instance.getComponent(cc.AudioSource);
@@ -139,7 +137,7 @@ export default class HomeUI extends BaseUI {
     onTestCheat0Click() {
         let curTime = Number(new Date());
         let user = new UserData();
-        DataMgr.myData = user;
+        DataMgr.myUser = user;
         user.address = "testaddress";
         user.nickname = "测试昵称";
         user.country = "cn";

@@ -1,5 +1,4 @@
 import { DataMgr, UserData } from "./DataMgr";
-import MainCtrl from "./MainCtrl";
 import WorldUI from "./WorldUI";
 import { FlagMgr } from "./UI/FlagMgr";
 
@@ -9,7 +8,7 @@ const { ccclass, property } = cc._decorator;
 export default class ArkInWorld extends cc.Component {
 
     @property(cc.Sprite)
-    sprArk: cc.Sprite = null;
+    sprIcon: cc.Sprite = null;
     @property(cc.Sprite)
     sprFlag: cc.Sprite = null;
     @property(cc.Label)
@@ -37,9 +36,11 @@ export default class ArkInWorld extends cc.Component {
     }
 
     refreshZoom(zoomScale: number) {
-        let curLoc = DataMgr.getUserCurrentLocation(this.data);
-        this.node.position = curLoc.mul(zoomScale);
-        this.sprArk.node.scale = zoomScale * 0.02;
+        if (this.data) {
+            let curLoc = DataMgr.getUserCurrentLocation(this.data);
+            this.node.position = curLoc.mul(zoomScale);
+            // this.sprArk.node.scale = zoomScale * 0.02;
+        }
     }
 
     update(dt: number) {
@@ -47,6 +48,6 @@ export default class ArkInWorld extends cc.Component {
     }
 
     onClick() {
-        WorldUI.Instance.selectArk(this.node);
+        WorldUI.Instance.selectObject(this.node);
     }
 }

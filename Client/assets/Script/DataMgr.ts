@@ -1,12 +1,12 @@
 import WorldUI from "./WorldUI";
 import MathUtil from "./Utils/MathUtil";
+import BlockchainMgr from "./BlockchainMgr";
 
 export class DataMgr {
 
     static myUser: UserData;
 
-    static othersData = {};
-    static allStars = [];
+    static allUsers = {};
     static allIslandData = {};
 
     static BuildingConfig: BuildingInfo[];
@@ -14,7 +14,7 @@ export class DataMgr {
 
     static outputRates = {};
 
-    static pirateDatas = {};
+    private static allPirates = {};
 
     static cityMoveSpeed = 150;
     static raidCityCargoRate = 0.1;
@@ -34,11 +34,6 @@ export class DataMgr {
     static init() {
         if (this.inited) return;
         this.inited = true;
-
-        for (let index = 0; index < 300; index++) {
-            let starInfo = DataMgr.getStarInfo(index);
-            this.allStars.push(starInfo);
-        }
     }
 
     static getBlockchainTimestamp() {
@@ -53,6 +48,14 @@ export class DataMgr {
         let time = dist / (user.locationData.speed / 60 / 1000);
         let t = (Number(new Date()) - user.locationData.lastLocationTime) / time;
         return MathUtil.lerpVec2(lastLocation, destination, t, true);
+    }
+
+    static getSailEnergyCost(user: UserData, distance: number) {
+        // let locationData = user.locationData;
+        // let dX = destinaion.x - locationData.lastLocationX;
+        // let dY = destinaion.y - locationData.lastLocationY;
+        // let dist = Math.sqrt(dX * dX + dY * dY);
+        return distance * Math.sqrt(user.expandCnt + 81) * this.energyCostPerLyExpand;
     }
 
     static getEnergyCostOfAttack(distance: number, tankPower, chopperPower, shipPower) {
@@ -71,22 +74,6 @@ export class DataMgr {
         return DataMgr.CargoConfig.find(info => info.id == id);
     }
 
-    static getStarInfo(index: number): StarInfo {
-        let a = (this.APHash1(index.toFixed() + 'startheta'));
-        let b = (this.APHash1(index.toFixed() + 'rhostar'));
-        let c = (this.APHash1(index.toFixed() + 'ironrate'));
-        let d = (this.APHash1(index.toFixed() + 'energyrate'));
-        let theta = a * Math.PI * 2;
-        let l = b * 5000;
-        let x = Math.cos(theta) * l;
-        let y = Math.sin(theta) * l;
-        let starInfo = new StarInfo();
-        starInfo.x = x;
-        starInfo.y = y;
-        starInfo.ironAbundance = (1 - b) * c;
-        starInfo.energyAbundance = (1 - b) * d;
-        return starInfo;
-    }
     static getPirateInfo(index) {
         if (index >= this.totalPirateCnt) {
             throw new Error("index must < totalPirateCnt." + index + '<' + this.totalPirateCnt);
@@ -144,6 +131,43 @@ export class DataMgr {
         pirateInfo.army = army;
         return pirateInfo;
     }
+    static getPirateData(pirateIndex) {
+        //check period
+        let curPeriodTimestamp = this.piratePeriodTimestamp;
+        let curTime = this.getBlockchainTimestamp();
+        if (curTime / 3600e3 >= Math.floor(curPeriodTimestamp / 3600e3 + 1)) {
+            //newPeriod
+            curPeriodTimestamp = Math.floor(curTime / 3600e3) * 3600e3;
+            this.piratePeriodTimestamp = curPeriodTimestamp;
+        }
+
+        let pirate = this.allPirates[pirateIndex];
+        if (!pirate) {
+            pirate = {};
+            pirate.index = pirateIndex;
+            pirate.respawnTimestamp = 0;
+        }
+        let info = this.getPirateInfo(pirateIndex);
+        pirate.__proto__ = info;
+        if (pirate.respawnTimestamp < this.piratePeriodTimestamp) {
+            delete pirate.army;
+            pirate.alive = true;
+        }
+        return pirate;
+    }
+    static fetchPirateDataFromBlockchain(pirateIndex) {
+        BlockchainMgr.Instance.getFunction('getPirateInfo', [pirateIndex], (resp) => {
+            console.log('getPirateInfo resp:', resp);
+            try {
+                let data = JSON.parse(resp.result);
+                if (data) {
+                    this.allPirates[pirateIndex] = data;
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    }
     static APHash1(str: string) {
         let hash = 0xAAAAAAAA;
         for (let i = 0; i < str.length; i++) {
@@ -174,9 +198,8 @@ export class DataMgr {
         return value;
     }
 
-    static getUserWarehouseCap(cargoName) {
+    static getUserWarehouseCap(user: UserData, cargoName) {
         let houseName = cargoName + 'house';
-        let user = DataMgr.myUser;
         let cap = 0;
         for (let key in user.buildingMap) {
             let bdg = user.buildingMap[key];
@@ -192,12 +215,30 @@ export class DataMgr {
         for (let key in user.cargoData) {
             curCargoData[key] = user.cargoData[key];
         }
-        let curTime = (new Date()).valueOf();
-        let collectingHours = (curTime - user.lastCalcTime) / 3600000;
-        let collectedIron = DataMgr.getUserCollectorRate(user, 'ironcoll') * collectingHours;
-        let collectedEnergy = DataMgr.getUserCollectorRate(user, 'energycoll') * collectingHours;
-        curCargoData['iron'] = Math.max(user.cargoData.iron, Math.min(DataMgr.getUserWarehouseCap('iron'), user.cargoData.iron + collectedIron));
-        curCargoData['energy'] = Math.max(user.cargoData.energy, Math.min(DataMgr.getUserWarehouseCap('energy'), user.cargoData.energy + collectedEnergy));
+        //collecting
+        let addCargos = {};
+        for (let key in user.buildingMap) {
+            let bdg = user.buildingMap[key];
+            if (!bdg) continue;
+            let info = this.getBuildingInfo(bdg.id);
+            if (info.Out0 && info.Out0Rate > 0) {
+                let cargoName = info.Out0;
+                if (!addCargos[cargoName]) {
+                    addCargos[cargoName] = 0;
+                }
+                addCargos[cargoName] += this.getBuildingInfoItemWithLv(bdg.id, 'Out0Rate', bdg.lv);
+            }
+        }
+
+        let collectingMinutes = (this.getBlockchainTimestamp() - user.lastCalcTime) / 60e3;
+        for (let cargoName in addCargos) {
+            let addCargoAmount = addCargos[cargoName] * collectingMinutes;
+            let capacity = this.getUserWarehouseCap(user, cargoName);
+            if (curCargoData[cargoName] < capacity) {
+                let addedAmount = Math.min(addCargoAmount, capacity - curCargoData[cargoName]);
+                curCargoData[cargoName] = curCargoData[cargoName] + addedAmount;
+            }
+        }
         return curCargoData;
     }
     static getUserCollectorRate(user: UserData, buildingId: string) {

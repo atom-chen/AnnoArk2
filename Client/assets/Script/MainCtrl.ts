@@ -1,7 +1,5 @@
 import CvsMain from "./CvsMain";
 import { DataMgr } from "./DataMgr";
-import IntroUI from "./UI/IntroUI";
-import WorldUI from "./WorldUI";
 import HomeUI from "./HomeUI";
 import BlockchainMgr from "./BlockchainMgr";
 

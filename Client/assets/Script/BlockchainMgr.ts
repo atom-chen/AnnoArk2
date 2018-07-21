@@ -40,7 +40,7 @@ export default class BlockchainMgr extends cc.Component {
     start() {
         this.checkWalletCountdown = 1;
         this.fetchMyDataInterval = 1;
-        this.fetchAllDataCountdown = 10;
+        this.fetchAllDataCountdown = 5;
     }
 
     //不断刷新当前钱包地址
@@ -156,7 +156,7 @@ export default class BlockchainMgr extends cc.Component {
             if (BlockchainMgr.WalletAddress != address) {
                 console.log('Change wallet address:', address);
                 BlockchainMgr.WalletAddress = address;
-                HomeUI.Instance.lblBlockchainAddress.string = BlockchainMgr.WalletAddress ? BlockchainMgr.WalletAddress : '';
+                HomeUI.Instance.edtBlockchainAddress.string = BlockchainMgr.WalletAddress ? BlockchainMgr.WalletAddress : '';
                 this.fetchAllDataCountdown = 0;
                 try {
                     if (DataMgr.myUser && DataMgr.myUser.address != address &&
@@ -175,7 +175,7 @@ export default class BlockchainMgr extends cc.Component {
         let user = JSON.parse(resp.result);
         if (user) {
             DataMgr.myUser = user;
-            user.ticks = MainCtrl.Ticks;
+            DataMgr.allUsers[user.address] = DataMgr.myUser;
         }
     }
 
@@ -185,11 +185,12 @@ export default class BlockchainMgr extends cc.Component {
         let allUserData = allData.users;
         let allIslandData = allData.islands;
 
-        DataMgr.othersData = {};
+        DataMgr.allUsers = {};
         allUserData.forEach(userJson => {
             if (userJson.address == BlockchainMgr.WalletAddress) {
+                DataMgr.allUsers[userJson.address] = DataMgr.myUser;
             } else {
-                DataMgr.othersData[userJson.address] = userJson;
+                DataMgr.allUsers[userJson.address] = userJson;
             }
         });
         allIslandData.forEach(islandJson => {
@@ -225,50 +226,6 @@ export default class BlockchainMgr extends cc.Component {
         } catch (error) {
             console.error(error);
         }
-    }
-
-    move(x, y, succCallback: () => void) {
-        try {
-            var nebPay = new NebPay();
-            var serialNumber;
-            var callbackUrl = BlockchainMgr.BlockchainUrl;
-
-            var to = ContractAddress;
-            var value = 0;
-            var callFunction = 'move';
-            // let enc = BlockchainMgr.encrypto(score.toString(), EncKey, 25);
-            console.log("调用钱包move", x, y);
-            var callArgs = JSON.stringify([x, y]);
-            serialNumber = nebPay.call(to, value, callFunction, callArgs, {
-                qrcode: {
-                    showQRCode: false
-                },
-                goods: {
-                    name: "test",
-                    desc: "test goods"
-                },
-                callback: callbackUrl,
-                listener: this.moveCallback(succCallback)
-            });
-        } catch (error) {
-            console.error(error);
-        }
-    }
-    moveCallback(succCallback: () => void): (object) => void {
-        return (resp) => {
-            console.log("moveCallback: ", succCallback, resp);
-            if (resp.toString().substr(0, 5) != 'Error') {
-                DialogPanel.PopupWith2Buttons('反物质引擎开始预热，如果一切顺利，将在30秒内出发',
-                    '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
-                        window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
-                    }, '确定', null);
-
-                WorldUI.Instance.editSailDestinationMode = false;
-                if (succCallback) succCallback();
-            } else {
-                ToastPanel.Toast('交易失败:' + resp);
-            }
-        };
     }
 
 

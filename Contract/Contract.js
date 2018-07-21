@@ -26,6 +26,7 @@ let User = function (jsonStr) {
             sand: 1000, //TODO：改为40
             silicon: 1000,
             ch4: 1000000,
+            tank: 1000000,
         };
         this.myNukeList = [];
         this.lastCalcTime = (new Date()).valueOf();
@@ -92,7 +93,7 @@ let Pirate = function (jsonStr) {
     } else {
         this.index = 0;
         this.respawnTimestamp = 0;
-        this.leftArmy = null;
+        this.army = null;
         this.alive = true;
     }
 };
@@ -633,11 +634,12 @@ GameContract.prototype = {
         if (!pirate) {
             pirate = new Pirate();
             pirate.index = pirateIndex;
+            pirate.respawnTimestamp = 0;
         }
         if (pirate.respawnTimestamp < this.piratePeriodTimestamp) {
             //respawn
             pirate.respawnTimestamp = this.piratePeriodTimestamp;
-            pirate.leftArmy = pirateInfo.army;
+            pirate.army = pirateInfo.army;
             pirate.alive = true;
         }
         if (pirate.alive) {
@@ -665,7 +667,7 @@ GameContract.prototype = {
                     user.cargoData[key] += winnerLeftArmy[key];
                 }
             } else { // pirate win
-                pirate.leftArmy = winnerLeftArmy;
+                pirate.army = winnerLeftArmy;
             }
 
             this.allUsers.set(userAddress, user);
@@ -889,7 +891,7 @@ GameContract.prototype = {
         let dX = locationData.destinationX - locationData.lastLocationX;
         let dY = locationData.destinationY - locationData.lastLocationY;
         let dist = Math.sqrt(dX * dX + dY * dY);
-        return dist * (user.expandCnt + 5) * this.energyCostPerLyExpand;
+        return dist * Math.sqrt(user.expandCnt + 81) * this.energyCostPerLyExpand;
     },
 
     //=====Nuke

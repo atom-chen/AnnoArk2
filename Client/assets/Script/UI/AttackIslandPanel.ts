@@ -54,7 +54,7 @@ export default class AttackIslandPanel extends cc.Component {
         this.island = island;
 
         let amIOccupant = DataMgr.myUser.address == island.data.occupant;
-        let data = amIOccupant ? DataMgr.myUser : DataMgr.othersData.find(d => d.address == island.data.occupant);
+        let data = amIOccupant ? DataMgr.myUser : DataMgr.allUsers.find(d => d.address == island.data.occupant);
         this.lblOccupant.string = data ? data.nickname : island.data.occupant;
         this.lblConfirmButton.string = amIOccupant ? '追加' : '进攻';
 

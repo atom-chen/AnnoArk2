@@ -1,4 +1,5 @@
 import WorldUI from "../WorldUI";
+import { DataMgr } from "../DataMgr";
 
 const { ccclass, property } = cc._decorator;
 
@@ -13,12 +14,10 @@ export default class Pirate extends cc.Component {
     grpInfo: cc.Node = null;
 
     index: number;
-    info;
-    data;
+    data; //可能为空
 
     setAndRefresh(index, info, data, zoomScale: number) {
         this.index = index;
-        this.info = info;
         this.data = data;
         // this.sprArk.node.setContentSize(data.arkSize, data.arkSize);
         this.lblName.string = '海盗';
@@ -27,7 +26,7 @@ export default class Pirate extends cc.Component {
     }
 
     refreshZoom(zoomScale: number) {
-        let curLoc = new cc.Vec2(this.info.x, this.info.y);
+        let curLoc = new cc.Vec2(this.data.x, this.data.y);
         this.node.position = curLoc.mul(zoomScale);
     }
 
@@ -36,6 +35,7 @@ export default class Pirate extends cc.Component {
     }
 
     onClick() {
-        WorldUI.Instance.selectArk(this.node);
+        WorldUI.Instance.selectObject(this.node);
+        DataMgr.fetchPirateDataFromBlockchain(this.index);
     }
 }
