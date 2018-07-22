@@ -39,7 +39,6 @@ export class DataMgr {
     }
 
     static getBlockchainTimestamp() {
-        console.log('getBlockchainTimestamp', Number(new Date()), this.timestampOffset, Number(new Date()) + this.timestampOffset);
         return Number(new Date()) + this.timestampOffset;
     }
 
@@ -190,17 +189,17 @@ export class DataMgr {
         return hash / 0xAAAAAAAA / 1.5 + 0.5;
     }
 
-    static getExpandCost(curExpandCnt: number, addExpandCnt: number) {
-        let cost = 0;
-        for (let i = curExpandCnt; i < curExpandCnt + addExpandCnt; i++) {
-            cost += 0.0001 * Math.exp(0.1 * i);
-        }
-        return cost;
+    static getExpandNeedFloatmod(i, j) {
+        let radius = Math.max(Math.abs(i), Math.abs(j));
+        let t = radius - 3;
+        let res = t * t * t;
+        return res;
     }
 
     static getBuildingInfoItemWithLv(buildingId, itemName, lv) {
         let value = DataMgr.getBuildingInfo(buildingId)[itemName];
         let multi = DataMgr.getBuildingInfo('_upgradeRate')[itemName];
+        if (!value) return 0;
         if (!isNaN(multi) && multi > 0) {
             value = value * Math.pow(multi, lv);
         }
@@ -251,15 +250,19 @@ export class DataMgr {
         }
         return curCargoData;
     }
-    static getUserCollectorRate(user: UserData, buildingId: string) {
+    static getUserCollectorRate(user: UserData, cargoName: string) {
         if (user === null) {
             throw new Error("User NOT FOUND.");
         }
         let rate = 0;
         for (let key in user.buildingMap) {
             let bdg = user.buildingMap[key];
-            if (bdg && bdg.id === buildingId) {
-                rate += DataMgr.getBuildingInfoItemWithLv(buildingId, 'Out0Rate', bdg.lv);
+            if (!bdg) continue;
+            let info = this.getBuildingInfo(bdg.id);
+            let out0 = info.Out0;
+            if (out0 === cargoName) {
+                let out0Rate = this.getBuildingInfoItemWithLv(bdg.id, 'Out0Rate', bdg.lv);
+                rate += out0Rate;
             }
         }
         return rate;
@@ -304,18 +307,9 @@ export class UserData {
 export class BuildingInfo {
     id: string;
     Name: string;
-    Prefab: string;
-    IronCost: number;
-    Capacity;
-    In0;
-    In0Amt;
-    In1;
-    In1Amt;
-    Out0;
-    Out0Rate;
-    CDPerUnit;
-    MaxCD;
-    MaxLevel;
+    CanBuild;
+    Type: string;
+    BuildMat0; BuildMat0Cnt; BuildMat1; BuildMat1Cnt; BuildMat2; BuildMat2Cnt; Money; In0; In0Amt; In1; In1Amt; In2; In2Amt; In3; In3Amt; Out0; Out0Rate; CDPerUnit; MaxQueue; HouseOf; Capacity; MaxLevel;
     Pic: string;
     Description: string;
 }

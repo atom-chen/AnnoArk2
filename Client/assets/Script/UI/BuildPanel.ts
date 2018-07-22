@@ -1,6 +1,6 @@
-import { DataMgr, IJ } from "./DataMgr";
 import BuildingButton from "./BuildingButton";
-import CityUI from "./CityUI";
+import { DataMgr } from "../DataMgr";
+import CityUI from "../CityUI";
 
 const {ccclass, property} = cc._decorator;
 
@@ -15,11 +15,14 @@ export default class BuildPanel extends cc.Component {
     buttonTemplate: cc.Node = null;
 
     start() {
-        DataMgr.BuildingConfig.forEach(building => {
+        DataMgr.BuildingConfig.forEach(buildingInfo => {
+            if (buildingInfo.CanBuild !== '1') {
+                return;
+            }
             let buildingBtnNode = cc.instantiate(this.buttonTemplate);
             buildingBtnNode.parent = this.buttonContainer;
             let buildingBtn = buildingBtnNode.getComponent(BuildingButton);
-            buildingBtn.setAndRefresh(building);
+            buildingBtn.setAndRefresh(buildingInfo);
             buildingBtnNode.active = true;
         });
         this.buttonTemplate.active = false;
@@ -34,8 +37,9 @@ export default class BuildPanel extends cc.Component {
     }
 
     onBtnExpandClick() {
-        CityUI.Instance.currentHoldingBlueprint = 'expand';
-        CityUI.Instance.currentBlueprintIJ = IJ.ZERO;
+        CityUI.Instance.enterExpandMode();
+        // CityUI.Instance.currentHoldingBlueprint = 'expand';
+        // CityUI.Instance.currentBlueprintIJ = IJ.ZERO;
         this.close();
     }
 

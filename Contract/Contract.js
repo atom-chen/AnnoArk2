@@ -154,10 +154,6 @@ let GameContract = function () {
     LocalContractStorage.defineProperty(this, "pirateCargoC0");
     LocalContractStorage.defineProperty(this, "pirateArmyC0");
     LocalContractStorage.defineProperty(this, "piratePeriodTimestamp");
-    // LocalContractStorage.defineProperty(this, "bancorA");//初始价格
-    // LocalContractStorage.defineProperty(this, "bancorK");//敏感度
-    // LocalContractStorage.defineProperty(this, "bancorX");//发行量
-    // LocalContractStorage.defineProperty(this, "bancorFee");//交易费率
     LocalContractStorage.defineProperty(this, "allUserList", {
         parse: function (jsonText) {
             return JSON.parse(jsonText);
@@ -192,6 +188,7 @@ let GameContract = function () {
             return JSON.stringify(obj);
         }
     });
+    LocalContractStorage.defineProperty(this, "allCargoNameList");
     LocalContractStorage.defineProperty(this, "allIslands", {
         parse: function (jsonText) {
             return JSON.parse(jsonText);
@@ -244,6 +241,7 @@ GameContract.prototype = {
         this.piratePeriodTimestamp = 0;
         this.allUserList = [];
         this.allIslands = [];
+        this.allCargoNameList = [];
         // this.bancorA = 0.01;
         // this.bancorK = 0.001;
         // this.bancorX = 0;
@@ -274,6 +272,7 @@ GameContract.prototype = {
         user.country = country;
         user.address = userAddress;
         user.locationData = this.getRandomSpawnLocation();
+        this.fillCargoData(user);
         this.allUsers.set(userAddress, user);
         let allUserList = this.allUserList;
         allUserList.push(userAddress);
@@ -344,8 +343,8 @@ GameContract.prototype = {
         let newExpandCnt = 0;
         let needFloatmod = 0;
         for (let k = 0; k < ijList.length; k++) {
-            let i = ijList[k][0];
-            let j = ijList[k][1];
+            let i = +ijList[k][0];
+            let j = +ijList[k][1];
             if (!this._getCityIJExpanded(user, i, j)) {
                 user.expandMap[i + ',' + j] = { order: user.expandCnt + newExpandCnt };
                 newExpandCnt += 1;
@@ -387,6 +386,9 @@ GameContract.prototype = {
         if (!info) {
             throw new Error("Build Failed. CANNOT find buildingID." + buildingId);
         }
+        if (info.CanBuild !== '1') {
+            throw new Error("Build Failed. CANNOT build this buildingID." + buildingId);
+        }
         //check cargo & consume cargo
         for (let i = 0; i < 3; i++) {
             let itemName = "BuildMat" + i;
@@ -394,10 +396,10 @@ GameContract.prototype = {
             if (cargoName) {
                 let cntItemName = itemName + "Cnt";
                 let needCnt = info[cntItemName];
-                user.cargoData[cargoName] -= needCnt;
-                if (user.cargoData[cargoName] < 0) {
+                if (!user.cargoData[cargoName] || user.cargoData[cargoName] < needCnt) {
                     throw new Error("Build Failed. Cargo NOT ENOUGH." + cargoName + "|" + user.cargoData[cargoName] + "<" + needCnt);
                 }
+                user.cargoData[cargoName] -= needCnt;
             }
         }
         //check money
@@ -456,10 +458,10 @@ GameContract.prototype = {
             if (cargoName) {
                 let cntItemName = itemName + "Cnt";
                 let needCnt = this.getBuildingInfoItemWithLv(buildingId, cntItemName, curLv + 1);
-                user.cargoData[cargoName] -= needCnt;
-                if (user.cargoData[cargoName] < 0) {
-                    throw new Error("Build Failed. Cargo NOT ENOUGH." + cargoName + "|" + user.cargoData[cargoName] + "<" + needCnt);
+                if (!user.cargoData[cargoName] || user.cargoData[cargoName] < needCnt) {
+                    throw new Error("Upgrade Failed. Cargo NOT ENOUGH." + cargoName + "|" + user.cargoData[cargoName] + "<" + needCnt);
                 }
+                user.cargoData[cargoName] -= needCnt;
             }
         }
         //upgrade!
@@ -589,8 +591,6 @@ GameContract.prototype = {
         }
 
         //produce!
-        user.cargoData[in0] -= in0Amount;
-        user.cargoData[in1] -= in1Amount;
         this._userAddCargo(user, out0, amount);
 
         //add cd
@@ -646,7 +646,7 @@ GameContract.prototype = {
             let res = this._battle(pirate.army.tank, pirate.army.chopper, pirate.army.ship, army.tank, army.chopper, pirate.army.ship);
             //attacker reduces army
             for (let key in army) {
-                if (user.cargoData[key] < army[key]) {
+                if ((user.cargoData[key] || 0) < army[key]) {
                     throw new Error("Army NOT ENOUGH." + key);
                 }
                 user.cargoData[key] -= army[key];
@@ -659,12 +659,12 @@ GameContract.prototype = {
                 pirate.alive = false;
                 //obtain cargos
                 let cargo = pirateInfo.cargo;
-                for (let key in cargo) {
-                    this._userAddCargo(user, key, cargo[key]);
+                for (let cargoName in cargo) {
+                    this._userAddCargo(user, cargoName, cargo[cargoName]);
                 }
                 //attacker retrieves left army
                 for (let key in winnerLeftArmy) {
-                    user.cargoData[key] += winnerLeftArmy[key];
+                    this._userAddCargo(user, key, winnerLeftArmy[key]);
                 }
             } else { // pirate win
                 pirate.army = winnerLeftArmy;
@@ -742,10 +742,10 @@ GameContract.prototype = {
                 let info = this.allCargoInfos.get(cargoName);
                 if (info.CanRaid) {
                     let houseCap = this.getUserWarehouseCap(user.address, cargoName);
-                    let transferAmt = Math.min(enemy.cargoData[cargoName] * this.raidCityCargoRate, houseCap - user.cargoData[cargoName]);
+                    let transferAmt = Math.min(enemy.cargoData[cargoName] * this.raidCityCargoRate, houseCap - (user.cargoData[cargoName] || 0));
                     if (transferAmt > 0) {
                         enemy.cargoData[cargoName] -= transferAmt;
-                        user.cargoData[cargoName] += transferAmt;
+                        this._userAddCargo(user, cargoName, transferAmt);
                     }
                 }
             }
@@ -811,11 +811,10 @@ GameContract.prototype = {
             island.occupant = userAddress;
 
             for (let key in army) {
-                if (user.cargoData[key] < army[key]) {
+                if ((user.cargoData[key] || 0) < army[key]) {
                     throw new Error("Army NOT ENOUGH." + key);
                 }
-                if (!island.army[key]) island.army[key] = army[key];
-                else island.army[key] += army[key];
+                island.army[key] = (island.army[key] || 0) + army[key];
                 user.cargoData[key] -= army[key];
                 if (user.cargoData[key] < 0) {
                     throw new Error("NOT ENOUGH army." + key + ", " + army[key]);
@@ -1031,23 +1030,23 @@ GameContract.prototype = {
         this._recalcLocationData(user.locationData);
 
         //collecting
-        let addCargos = {};
+        let addCargoRates = {};
         for (let key in user.buildingMap) {
             let bdg = user.buildingMap[key];
             if (!bdg) continue;
             let info = this.allBuildingInfos.get(bdg.id);
             if (info.Out0 && info.Out0Rate > 0) {
                 let cargoName = info.Out0;
-                if (!addCargos[cargoName]) {
-                    addCargos[cargoName] = 0;
+                if (!addCargoRates[cargoName]) {
+                    addCargoRates[cargoName] = 0;
                 }
-                addCargos[cargoName] += this.getBuildingInfoItemWithLv(bdg.id, 'Out0Rate', bdg.lv);
+                addCargoRates[cargoName] += this.getBuildingInfoItemWithLv(bdg.id, 'Out0Rate', bdg.lv);
             }
         }
 
         let collectingMinutes = (curTime - user.lastCalcTime) / 60e3;
-        for (let cargoName in addCargos) {
-            this._userAddCargo(user, cargoName, addCargos[cargoName] * collectingMinutes);
+        for (let cargoName in addCargoRates) {
+            this._userAddCargo(user, cargoName, addCargoRates[cargoName] * collectingMinutes);
         }
 
         user.lastCalcTime = curTime;
@@ -1059,9 +1058,11 @@ GameContract.prototype = {
             throw new Error('_userAddCargo() cargoAmount must >= 0' + cargoAmount);
         }
         let capacity = this.getUserWarehouseCap(user.address, cargoName);
-        if (user.cargoData[cargoName] < capacity) {
-            let addedAmount = Math.min(cargoAmount, capacity - user.cargoData[cargoName]);
-            user.cargoData[cargoName] = user.cargoData[cargoName] + addedAmount;
+        let cargoData = user.cargoData;
+        if (!cargoData[cargoName]) cargoData[cargoName] = 0;
+        if (cargoData[cargoName] < capacity) {
+            let addedAmount = Math.min(cargoAmount, capacity - cargoData[cargoName]);
+            user.cargoData[cargoName] = cargoData[cargoName] + addedAmount;
             return addedAmount;
         }
         return 0;
@@ -1193,8 +1194,8 @@ GameContract.prototype = {
 
     //=====Give & Trade & Shop
     transfer: function (receiverAddress, cargoName, amount) {
-        if (amount <= 0) {
-            throw new Error("amount must > 0.");
+        if (amount < 0) {
+            throw new Error("amount must >= 0.");
         }
         let userAddress = Blockchain.transaction.from;
         let user = this.allUsers.get(userAddress);
@@ -1209,7 +1210,7 @@ GameContract.prototype = {
         }
         this._recalcUser(receiver);
 
-        user.cargoData[cargoName] -= amount;
+        user.cargoData[cargoName] = (user.cargoData[cargoName] || 0) - amount;
         this._userAddCargo(receiver, cargoName, amount);
         if (user.cargoData[cargoName] < 0) {
             throw new Error("user's cargo NOT ENOUGH to transfer." + user.cargoData[cargoName]);
@@ -1522,25 +1523,11 @@ GameContract.prototype = {
     getBuildingInfoItemWithLv: function (buildingId, itemName, lv) {
         let value = this.allBuildingInfos.get(buildingId)[itemName];
         let multi = this.allBuildingInfos.get('_upgradeRate')[itemName];
-        if (!isNaN(multi)) {
+        if (!value) return 0;
+        if (!isNaN(multi) && multi > 0) {
             value = value * Math.pow(multi, lv);
         }
         return value;
-    },
-    getUserCollectorRate: function (userAddress, buildingId) {
-        let user = this.allUsers.get(userAddress);
-        if (user === null) {
-            throw new Error("User NOT FOUND.");
-        }
-        let info = this.allBuildingInfos.get(buildingId);
-        let rate = 0;
-        for (let key in user.buildingMap) {
-            let bdg = user.buildingMap[key];
-            if (bdg && bdg.id === buildingId) {
-                rate += this.getBuildingInfoItemWithLv(buildingId, 'Out0Rate', bdg.lv);
-            }
-        }
-        return rate;
     },
     getUserWarehouseCap: function (userAddress, cargoName) {
         let user = this.allUsers.get(userAddress);
@@ -1633,9 +1620,11 @@ GameContract.prototype = {
         for (let key in this.allCargoInfos) {
             this.allCargoInfos.del(key);
         }
+        this.allCargoNameList = [];
         for (let i = 0; i < infoArray.length; i++) {
             let info = infoArray[i];
             this.allCargoInfos.set(info.id, info);
+            this.allCargoNameList.push(info.id);
         }
         return {
             "success": true,
@@ -1673,7 +1662,19 @@ GameContract.prototype = {
     },
     getIslandInfo: function (index) {
         return this.allIslands[index];
-    }
+    },
+
+    //=====Data Fixer
+    fillCargoData: function (user, setStorage) {
+        this.allCargoNameList.forEach(cargoName => {
+            if (!user.cargoData[cargoName]) {
+                user.cargoData[cargoName] = 0;
+            }
+        });
+        if (setStorage) {
+            this.allUsers.set(user.address, user);
+        }
+    },
 }
 
 

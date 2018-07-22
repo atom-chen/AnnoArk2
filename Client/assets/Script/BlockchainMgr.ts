@@ -1,5 +1,4 @@
 import { DataMgr, UserData, IslandData } from "./DataMgr";
-import DialogPanel from "./DialogPanel";
 import WorldUI from "./WorldUI";
 import ToastPanel from "./UI/ToastPanel";
 import CityUI from "./CityUI";
@@ -7,6 +6,7 @@ import CvsMain from "./CvsMain";
 import HomeUI from "./HomeUI";
 import AttackIslandPanel from "./UI/AttackIslandPanel";
 import MainCtrl from "./MainCtrl";
+import DialogPanel from "./UI/DialogPanel";
 
 const { ccclass, property } = cc._decorator;
 
@@ -228,47 +228,6 @@ export default class BlockchainMgr extends cc.Component {
             console.error(error);
         }
     }
-
-
-    expand(i, j, valueNas: number) {
-        try {
-
-            var nebPay = new NebPay();
-            var serialNumber;
-            var callbackUrl = BlockchainMgr.BlockchainUrl;
-            var to = ContractAddress;
-            var value = Math.ceil(valueNas * 1e6) / 1e6;
-            var callFunction = 'expand';
-            var callArgs = JSON.stringify([i, j]);
-            console.log("调用钱包expand(" + i + ',' + j + ", valueNas", valueNas, 'value', value);
-            serialNumber = nebPay.call(to, value, callFunction, callArgs, {
-                qrcode: {
-                    showQRCode: false
-                },
-                goods: {
-                    name: "test",
-                    desc: "test goods"
-                },
-                callback: callbackUrl,
-                listener: this.expandCallback
-            });
-        } catch (error) {
-            console.error(error);
-        }
-    }
-    expandCallback(resp) {
-        console.log("expandCallback: ", resp);
-        if (resp.toString().substr(0, 5) != 'Error') {
-            DialogPanel.PopupWith2Buttons('扩建计划已启动，请稍候',
-                '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
-                    window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
-                }, '确定', null);
-        } else {
-            ToastPanel.Toast('交易失败:' + resp);
-        }
-    }
-
-
 
     attackIsland(islandId: number, tank, chopper, ship, succCallback: () => void) {
         try {

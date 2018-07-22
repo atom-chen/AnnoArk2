@@ -1,14 +1,11 @@
 import CvsMain from "./CvsMain";
 import BaseUI from "./BaseUI";
-import MainCtrl from "./MainCtrl";
 import CityUI from "./CityUI";
-import ArkInWorld from "./ArkInWorld";
 import { DataMgr } from "./DataMgr";
 import BlockchainMgr from "./BlockchainMgr";
 import HomeUI from "./HomeUI";
 import Island from "./World/Island";
 import AttackIslandPanel from "./UI/AttackIslandPanel";
-import DialogPanel from "./DialogPanel";
 import CurrencyFormatter from "./Utils/CurrencyFormatter";
 import SponsorIslandPanel from "./UI/SponsorIslandPanel";
 import IslandInfoFrame from "./UI/IslandInfoFrame";
@@ -17,6 +14,8 @@ import { SpecialArk } from "./World/SpecialArk";
 import Pirate from "./World/Pirate";
 import WatchPiratePanel from "./UI/WatchPiratePanel";
 import AttackPiratePanel from "./UI/AttackPiratePanel";
+import ArkInWorld from "./World/ArkInWorld";
+import DialogPanel from "./UI/DialogPanel";
 
 const { ccclass, property } = cc._decorator;
 

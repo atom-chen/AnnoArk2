@@ -5,9 +5,9 @@ import { DataMgr, UserData, CargoData, TechData, LocationData } from "./DataMgr"
 import WorldUI from "./WorldUI";
 import ToastPanel from "./UI/ToastPanel";
 import BlockchainMgr from "./BlockchainMgr";
-import DialogPanel from "./DialogPanel";
 import EditNicknamePanel from "./UI/EditNicknamePanel";
 import { FlagMgr } from "./UI/FlagMgr";
+import DialogPanel from "./UI/DialogPanel";
 
 const { ccclass, property } = cc._decorator;
 
