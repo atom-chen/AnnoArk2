@@ -348,6 +348,7 @@ export default class CityUI extends BaseUI {
             let cost = expandModeContainer.getCost();
             let floatmod: number = (DataMgr.getUserCurrentCargoData(DataMgr.myUser)['floatmod'] || 0);
             let enough = floatmod >= cost;
+            let self = this;
             const callBlockchain = () => BlockchainMgr.Instance.callFunction('expand', [ijList], 0,
                 (resp) => {
                     if (resp.toString().substr(0, 5) != 'Error') {
@@ -355,7 +356,7 @@ export default class CityUI extends BaseUI {
                             '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
                                 window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
                             }, '确定', null);
-                        this.expandModeContainer.active = false;
+                        self.expandModeContainer.active = false;
                     } else {
                         ToastPanel.Toast('交易失败:' + resp);
                     }

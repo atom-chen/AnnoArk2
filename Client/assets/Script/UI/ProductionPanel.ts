@@ -121,7 +121,7 @@ export default class ProductionPanel extends cc.Component {
         this.lblOut0Down.string = out0DisplayName;
         const cdPerUnit = DataMgr.getBuildingInfoItemWithLv(this.buildingData.id, 'CDPerUnit', this.buildingData.lv);
         const cd = cdPerUnit * count;
-        this.lblCd.string = Math.floor(cd / 60) + 'h' + Math.floor((cd - Math.floor(cd))) + 'min';
+        this.lblCd.string = Math.floor(cd / 60) + 'h' + Math.floor(cd) + 'min';
     }
 
     onConfirmClick() {
@@ -149,8 +149,9 @@ export default class ProductionPanel extends cc.Component {
             ToastPanel.Toast('仓库容量不够，如果强行生产，超出容量的部分会被销毁哦');
         }
 
+        let self = this;
         const callBlockchain = () => {
-            let ij = JSON.parse('[' + this.building.node.name + ']');
+            let ij = JSON.parse('[' + self.building.node.name + ']');
             BlockchainMgr.Instance.callFunction('produce', [ij[0], ij[1], count], 0,
                 (resp) => {
                     if (resp.toString().substr(0, 5) != 'Error') {
@@ -158,6 +159,7 @@ export default class ProductionPanel extends cc.Component {
                             '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
                                 window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
                             }, '确定', null);
+                        self.close();
                     } else {
                         ToastPanel.Toast('交易失败:' + resp);
                     }

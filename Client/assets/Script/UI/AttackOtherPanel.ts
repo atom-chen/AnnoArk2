@@ -1,4 +1,4 @@
-import { DataMgr } from "../DataMgr";
+import { DataMgr, UserData } from "../DataMgr";
 import BlockchainMgr from "../BlockchainMgr";
 import ToastPanel from "./ToastPanel";
 import DialogPanel from "./DialogPanel";
@@ -6,9 +6,9 @@ import DialogPanel from "./DialogPanel";
 const { ccclass, property } = cc._decorator;
 
 @ccclass
-export default class AttackPiratePanel extends cc.Component {
-    static Instance: AttackPiratePanel;
-    onLoad() { AttackPiratePanel.Instance = this; }
+export default class AttackOtherPanel extends cc.Component {
+    static Instance: AttackOtherPanel;
+    onLoad() { AttackOtherPanel.Instance = this; }
 
     @property(cc.Label)
     lblTitle: cc.Label = null;
@@ -46,18 +46,19 @@ export default class AttackPiratePanel extends cc.Component {
     chopperMax = 0;
     shipMax = 0;
 
-    pirateData;
+    user: UserData;
 
-    setAndRefresh(pirateData: any) {
-        this.pirateData = pirateData;
+    setAndRefresh(user: UserData) {
+        this.user = user;
 
-        this.pirateData = pirateData;
-        this.lblTitle.string = '海盗 #' + pirateData.index.toString();
-        this.lblLv.string = pirateData.lv.toString();
+        this.user = user;
+        this.lblTitle.string = user.nickname;
+        this.lblLv.string = DataMgr.getUserLevel(user).toFixed();
 
-        this.lblDefTank.string = (pirateData.army.tank).toFixed();
-        this.lblDefChopper.string = (pirateData.army.chopper).toFixed();
-        this.lblDefShip.string = (pirateData.army.ship).toFixed();
+        let cargoData = DataMgr.getUserCurrentCargoData(user);
+        this.lblDefTank.string = (cargoData['tank'] || 0).toFixed();
+        this.lblDefChopper.string = (cargoData['chopper'] || 0).toFixed();
+        this.lblDefShip.string = (cargoData['ship'] || 0).toFixed();
 
         this.SldAtkTank.progress = 0;
         this.SldAtkChopper.progress = 0;
@@ -118,32 +119,31 @@ export default class AttackPiratePanel extends cc.Component {
     }
 
     refreshDistance() {
-        const pirateLocation = new cc.Vec2(this.pirateData.x, this.pirateData.y);
-        const distance = pirateLocation.sub(DataMgr.getUserCurrentLocation(DataMgr.myUser)).mag();
+        const location = DataMgr.getUserCurrentLocation(this.user);
+        const distance = location.sub(DataMgr.getUserCurrentLocation(DataMgr.myUser)).mag();
         this.lblDistance.string = distance.toFixed() + 'km';
     }
 
     onConfirmClick() {
-        console.log('想要攻打海盗', this.pirateData.index);
+        console.log('想要攻打玩家', this.user.address);
 
-        const pirateLocation = new cc.Vec2(this.pirateData.x, this.pirateData.y);
+        const location = DataMgr.getUserCurrentLocation(this.user);
         const myPos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
-        const distance = pirateLocation.sub(myPos).mag();
+        const distance = location.sub(myPos).mag();
 
-        if (distance > 300) {
-            DialogPanel.PopupWith2Buttons('警告：可能失败的区块链调用', '距离300km之内才能攻打海盗，强行发送交易可能会失败。', '确定', null, '强行发送', this.confirmAttack.bind(this));
-            return;
+        if (distance > 100) {
+            DialogPanel.PopupWith2Buttons('警告：可能失败的区块链调用', '距离100km之内才能攻打其他玩家，强行发送交易可能会失败。', '确定', null, '强行发送', this.confirmAttack.bind(this));
+        } else {
+            this.confirmAttack();
         }
-
-        this.confirmAttack();
     }
 
     private confirmAttack() {
         const tank = Math.round(this.SldAtkTank.progress * this.tankMax);
         const chopper = Math.round(this.SldAtkChopper.progress * this.chopperMax);
         const ship = Math.round(this.SldAtkShip.progress * this.shipMax);
-        BlockchainMgr.Instance.callFunction('attackPirate',
-            [this.pirateData.index, { tank: tank, chopper: chopper, ship: ship }], 0,
+        BlockchainMgr.Instance.callFunction('attackUserCity',
+            [this.user.address, { tank: tank, chopper: chopper, ship: ship }], 0,
             (resp) => {
                 if (resp.toString().substr(0, 5) != 'Error') {
                     DialogPanel.PopupWith2Buttons('正在递交作战计划',
@@ -159,6 +159,6 @@ export default class AttackPiratePanel extends cc.Component {
 
     close() {
         this.node.destroy();
-        AttackPiratePanel.Instance = null;
+        AttackOtherPanel.Instance = null;
     }
 }

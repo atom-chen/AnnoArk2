@@ -1725,7 +1725,7 @@
     },
     "component": "ProductionPanel",
     "handler": "onEditBoxChange",
-    "customEventData": "Tank"
+    "customEventData": ""
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2140,7 +2140,7 @@
     },
     "component": "ProductionPanel",
     "handler": "onSliderChange",
-    "customEventData": "Tank"
+    "customEventData": ""
   },
   {
     "__type__": "cc.PrefabInfo",

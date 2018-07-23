@@ -54,7 +54,7 @@ export default class HomeUI extends BaseUI {
         if (DataMgr.myUser) {
             if (DataMgr.myUser.nickname) this.lblNickname.string = DataMgr.myUser.nickname;
             if (DataMgr.myUser.country) this.country = DataMgr.myUser.country;
-            this.lblLv.string = 'Level ' + (Math.floor(Math.pow(DataMgr.myUser.expandCnt, 0.5)) + 1).toFixed();
+            this.lblLv.string = 'Level ' + DataMgr.getUserLevel(DataMgr.myUser);
         }
         FlagMgr.setFlag(this.sprFlag, this.country);
         this.lblTotalArkCount.string = (Object.keys(DataMgr.allUsers).length).toFixed();

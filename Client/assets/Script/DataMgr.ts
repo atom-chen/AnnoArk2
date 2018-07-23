@@ -42,6 +42,9 @@ export class DataMgr {
         return Number(new Date()) + this.timestampOffset;
     }
 
+    static getUserLevel(user) {
+        return Math.floor(Math.pow(user.expandCnt, 0.5)) + 1;
+    }
     static getUserCurrentLocation(user) {
         let lastLocation = new cc.Vec2(user.locationData.lastLocationX, user.locationData.lastLocationY);
         if (user.locationData.destinationX == null || user.locationData.destinationY == null) return lastLocation;

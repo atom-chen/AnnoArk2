@@ -1,13 +1,13 @@
-import { DataMgr } from "../DataMgr";
+import { DataMgr, UserData } from "../DataMgr";
 import CvsMain from "../CvsMain";
-import AttackPiratePanel from "./AttackPiratePanel";
+import AttackOtherPanel from "./AttackOtherPanel";
 
 const { ccclass, property } = cc._decorator;
 
 @ccclass
-export default class WatchPiratePanel extends cc.Component {
-    static Instance: WatchPiratePanel;
-    onLoad() { WatchPiratePanel.Instance = this; }
+export default class WatchOtherPanel extends cc.Component {
+    static Instance: WatchOtherPanel;
+    onLoad() { WatchOtherPanel.Instance = this; }
 
     @property(cc.Label)
     lblTitle: cc.Label = null;
@@ -27,22 +27,24 @@ export default class WatchPiratePanel extends cc.Component {
 
     cargoFrameList = [];
 
-    pirateData;
+    user: UserData;
 
     start() {
         this.cargoFrameTemplate.active = false;
     }
-    setAndRefresh(pirateData: any) {
-        this.pirateData = pirateData;
-        this.lblTitle.string = '海盗 #' + pirateData.index.toString();
-        this.lblLv.string = pirateData.lv.toString();
-        this.lblDefTank.string = (pirateData.army.tank).toFixed();
-        this.lblDefChopper.string = (pirateData.army.chopper).toFixed();
-        this.lblDefShip.string = (pirateData.army.ship).toFixed();
+    setAndRefresh(user: UserData) {
+        console.log('sAR', user);
+        this.user = user;
+        this.lblTitle.string = user.nickname;
+        this.lblLv.string = DataMgr.getUserLevel(user).toFixed();
 
-        let cargo = pirateData.cargo;
+        let cargoData = DataMgr.getUserCurrentCargoData(user);
+        this.lblDefTank.string = (cargoData['tank'] || 0).toFixed();
+        this.lblDefChopper.string = (cargoData['chopper'] || 0).toFixed();
+        this.lblDefShip.string = (cargoData['ship'] || 0).toFixed();
+
         let i = 0;
-        for (let cargoName in cargo) {
+        for (let cargoName in cargoData) {
             let node: cc.Node;
             if (i < this.cargoFrameList.length) {
                 node = this.cargoFrameList[i];
@@ -53,7 +55,7 @@ export default class WatchPiratePanel extends cc.Component {
                 node.active = true;
             }
             let lbl = node.getChildByName('LblCargo').getComponent(cc.Label);
-            lbl.string = DataMgr.getCargoInfo(cargoName).Name + '  ' + cargo[cargoName].toFixed();
+            lbl.string = DataMgr.getCargoInfo(cargoName).Name + '  ' + cargoData[cargoName].toFixed();
             i++;
         }
         for (; i < this.cargoFrameList.length; i++) {
@@ -63,14 +65,14 @@ export default class WatchPiratePanel extends cc.Component {
 
     onAttackClick() {
         const refresh = (data) => {
-            AttackPiratePanel.Instance.setAndRefresh(data);
+            if (AttackOtherPanel.Instance) AttackOtherPanel.Instance.setAndRefresh(data);
         };
-        CvsMain.OpenPanel(AttackPiratePanel, () => refresh(DataMgr.getPirateData(this.pirateData.index)));
-        DataMgr.fetchPirateDataFromBlockchain(this.pirateData.index, refresh);
+        CvsMain.OpenPanel(AttackOtherPanel, () => refresh(DataMgr.allUsers[this.user.address]));
+        DataMgr.fetchUserDataFromBlockchain(this.user.address, refresh);
     }
 
     close() {
         this.node.destroy();
-        WatchPiratePanel.Instance = null;
+        WatchOtherPanel.Instance = null;
     }
 }

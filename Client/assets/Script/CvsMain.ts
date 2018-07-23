@@ -33,7 +33,6 @@ export default class CvsMain extends cc.Component {
         try {
             if (panelType.Instance) {
                 panelType.Instance.node.active = true;
-                panelType.Instance.init();
                 return;
             }
             cc.loader.loadRes("Prefabs/Panels/" + panelType.name, cc.Prefab, function (err, prefab) {

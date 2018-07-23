@@ -576,8 +576,8 @@ GameContract.prototype = {
         let curLv = building.lv;
 
         let maxQueue = this.getBuildingInfoItemWithLv(buildingId, "MaxQueue", curLv);
-        if (amount >= maxQueue) {
-            throw new Error("Produce failed because amount >= maxQueue." + maxQueue);
+        if (amount > maxQueue) {
+            throw new Error("Produce failed because amount > maxQueue." + maxQueue);
         }
 
         let info = this.allBuildingInfos.get(buildingId);
