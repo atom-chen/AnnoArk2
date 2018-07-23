@@ -179,6 +179,7 @@ let GameContract = function () {
             return JSON.stringify(obj);
         }
     });
+    LocalContractStorage.defineProperty(this, "allBuildingIDList");
     LocalContractStorage.defineMapProperty(this, "allCargoInfos", {
 
         parse: function (jsonText) {
@@ -241,6 +242,7 @@ GameContract.prototype = {
         this.piratePeriodTimestamp = 0;
         this.allUserList = [];
         this.allIslands = [];
+        this.allBuildingIDList = [];
         this.allCargoNameList = [];
         // this.bancorA = 0.01;
         // this.bancorK = 0.001;
@@ -591,6 +593,7 @@ GameContract.prototype = {
         }
 
         //produce!
+        let out0 = info.Out0;
         this._userAddCargo(user, out0, amount);
 
         //add cd
@@ -1598,16 +1601,19 @@ GameContract.prototype = {
         if (Blockchain.transaction.from != this.adminAddress) {
             throw new Error("Permission denied.");
         }
-        for (let key in this.allBuildingInfos) {
-            this.allBuildingInfos.del(key);
-        }
+        this.allBuildingIDList.forEach(id => {
+            this.allBuildingInfos.del(id);
+        });
+        let allBuildingIDList = [];
         for (let i = 0; i < infoArray.length; i++) {
             let info = infoArray[i];
             this.allBuildingInfos.set(info.id, info);
+            allBuildingIDList.push(info.id);
         }
+        this.allBuildingIDList = allBuildingIDList;
         return {
             "success": true,
-            "length": infoArray.length
+            "length": this.allBuildingIDList.length
         }
     },
     getBuildingInfo: function (id) {
@@ -1617,18 +1623,19 @@ GameContract.prototype = {
         if (Blockchain.transaction.from != this.adminAddress) {
             throw new Error("Permission denied.");
         }
-        for (let key in this.allCargoInfos) {
-            this.allCargoInfos.del(key);
-        }
-        this.allCargoNameList = [];
+        this.allCargoNameList.forEach(id => {
+            this.allCargoInfos.del(id);
+        });
+        let allCargoNameList = [];
         for (let i = 0; i < infoArray.length; i++) {
             let info = infoArray[i];
             this.allCargoInfos.set(info.id, info);
-            this.allCargoNameList.push(info.id);
+            allCargoNameList.push(info.id);
         }
+        this.allCargoNameList = allCargoNameList;
         return {
             "success": true,
-            "length": infoArray.length
+            "length": this.allCargoNameList.length
         }
     },
     getCargoInfo: function (id) {

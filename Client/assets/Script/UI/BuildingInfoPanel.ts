@@ -68,8 +68,7 @@ export default class BuildingInfoPanel extends cc.Component {
         } else {
             info = idOrInfo;
         }
-        CvsMain.OpenPanel(BuildingInfoPanel);       
-        BuildingInfoPanel.Instance.refresh(info);
+        CvsMain.OpenPanel(BuildingInfoPanel, () => BuildingInfoPanel.Instance.refresh(info));
     }
 
     close() {

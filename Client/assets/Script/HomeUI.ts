@@ -64,7 +64,7 @@ export default class HomeUI extends BaseUI {
         this.lblMusicButton.string = MainCtrl.Instance.getComponent(cc.AudioSource).volume > 0 ? '音乐：开' : '音乐：关';
     }
 
-    onClaim(event) {
+    onClaim() {
         //检查昵称、国家
         if (!this.lblNickname.string || !this.country) {
             CvsMain.OpenPanel(EditNicknamePanel);

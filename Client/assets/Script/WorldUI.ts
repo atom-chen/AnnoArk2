@@ -109,8 +109,6 @@ export default class WorldUI extends BaseUI {
         this.editSailDestinationMode = false;
         this.focusedObjectNode = null;
 
-        if (!DataMgr.myUser) return;
-
         try {
             this.refreshData();
             this.refreshZoom();
@@ -175,11 +173,6 @@ export default class WorldUI extends BaseUI {
         this.refreshCountdown = 2;
     }
 
-    refreshMyCity() {
-        let arkIW = this.cityContainer.children[0].getComponent(ArkInWorld);
-        arkIW.setAndRefresh(DataMgr.myUser, this.zoomScale);
-    }
-
     refreshZoom() {
         // let size = 12000 * this.zoomScale;
         this.earth.scale = this.zoomScale;
@@ -242,10 +235,6 @@ export default class WorldUI extends BaseUI {
                 this.grpSelectObject.active = false;
                 this.focusedInfoFrame.active = true;
 
-                let pos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
-                let data = DataMgr.getPirateData(pirate.index);
-                // let distance = this.newDestination.sub(pos).mag();
-
                 this.focusedInfoFrame.position = this.focusedObjectNode.position;
                 this.lblSelectInfo0.string = `Lv ${pirate.data.lv + 1}`;
                 this.lblSelectInfo1.string =
@@ -256,7 +245,7 @@ export default class WorldUI extends BaseUI {
             } else if (island) {
                 this.btnSponsorLink.getComponentInChildren(cc.Label).string =
                     island.data.sponsorName ? island.data.sponsorName : '无赞助商';
-                if (island.data.occupant && island.data.occupant == DataMgr.myUser.address) {
+                if (island.data.occupant && DataMgr.myUser && island.data.occupant == DataMgr.myUser.address) {
                     this.lblAttackButton.string = '追加\n驻军';
                     const t0 = island.data.lastMineTime;
                     const t1 = Number(new Date());
@@ -301,10 +290,17 @@ export default class WorldUI extends BaseUI {
     }
 
     onGotoArkClick() {
+        if (!DataMgr.myUser) {
+            ToastPanel.Toast('您尚未领取方舟');
+            return;
+        }
         CvsMain.EnterUI(CityUI);
     }
 
     onCenterBtnClick() {
+        if (!DataMgr.myUser) {
+            return;
+        }
         let user = DataMgr.myUser;
         let rawPos = DataMgr.getUserCurrentLocation(user);
         rawPos.mulSelf(this.zoomScale);
@@ -368,12 +364,21 @@ export default class WorldUI extends BaseUI {
     onSelectObjectInfoClick() {
         let speArk = this.focusedObjectNode.getComponent(SpecialArk);
         if (speArk) {
-            let pos = new cc.Vec2(DataMgr.myUser.currentLocation.x, DataMgr.myUser.currentLocation.y);
-            let dist = pos.sub(speArk.location).mag();
+            let dist: number
+            if (DataMgr.myUser) {
+                let pos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
+                dist = pos.sub(speArk.location).mag();
+            } else {
+                dist = 6e3;
+            }
             speArk.showInfo(dist);
         }
     }
     onBtnAttackIslandClick() {
+        if (!DataMgr.myUser) {
+            ToastPanel.Toast('拥有方舟才能进攻');
+            return;
+        }
         const island = this.focusedObjectNode ? this.focusedObjectNode.getComponent(Island) : null;
         if (!island) return;
         CvsMain.OpenPanel(AttackIslandPanel);
@@ -413,6 +418,10 @@ export default class WorldUI extends BaseUI {
     btnConfirmSail: cc.Node = null;
 
     onBtnSailClick() {
+        if (!DataMgr.myUser) {
+            ToastPanel.Toast('拥有方舟才能航行');
+            return;
+        }
         this.focusedObjectNode = null;
         this.editSailDestinationMode = true;
         this.newDestination = null;

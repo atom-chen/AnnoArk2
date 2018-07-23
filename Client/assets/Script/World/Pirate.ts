@@ -26,8 +26,10 @@ export default class Pirate extends cc.Component {
     }
 
     refreshZoom(zoomScale: number) {
-        let curLoc = new cc.Vec2(this.data.x, this.data.y);
-        this.node.position = curLoc.mul(zoomScale);
+        if (this.data) {
+            let curLoc = new cc.Vec2(this.data.x, this.data.y);
+            this.node.position = curLoc.mul(zoomScale);
+        }
     }
 
     update(dt: number) {

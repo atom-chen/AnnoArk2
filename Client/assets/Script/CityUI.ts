@@ -443,8 +443,7 @@ export default class CityUI extends BaseUI {
     }
     //生产
     onProduceBtnClick() {
-        CvsMain.OpenPanel(ProductionPanel);
-        ProductionPanel.Instance.setAndRefresh(this.selectedBuilding, DataMgr.myUser.buildingMap[this.selectedBuilding.node.name]);
+        CvsMain.OpenPanel(ProductionPanel, () => ProductionPanel.Instance.setAndRefresh(this.selectedBuilding, DataMgr.myUser.buildingMap[this.selectedBuilding.node.name]));
     }
 
     onTradeBtnClick() {
