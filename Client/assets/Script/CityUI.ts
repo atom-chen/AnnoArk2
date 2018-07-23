@@ -60,6 +60,8 @@ export default class CityUI extends BaseUI {
 
     @property(cc.Node)
     panPad: cc.Node = null;
+    @property(cc.Node)
+    focusFrame: cc.Node = null;
     @property(cc.Slider)
     sldZoom: cc.Slider = null;
     pressingZoomSlider = false;
@@ -155,8 +157,11 @@ export default class CityUI extends BaseUI {
         if (this.selectedBuilding) {
             this.grpBuildingInfo.active = true;
             this.nodProduceButton.active = (this.selectedBuilding.getComponent(ProducerBuilding) != null);
+            this.focusFrame.position = this.selectedBuilding.node.position;
+            this.focusFrame.active = true;
         } else {
             this.grpBuildingInfo.active = false;
+            this.focusFrame.active = false;
         }
     }
 
@@ -306,7 +311,24 @@ export default class CityUI extends BaseUI {
     currentBlueprintIJ: IJ;
     enterBuildMode(buildingInfo: BuildingInfo) {
         this.currentHoldingBlueprint = buildingInfo;
-        this.currentBlueprintIJ = IJ.ZERO;
+        //寻找最近的空位
+        const findEmptyIJ = () => {
+            for (let i = 1; ; i++) {
+                for (let j = 1; ; j++) {
+                    for (let fi = -1; fi <= 1; fi += 2)
+                        for (let fj = -1; fj <= 1; fj += 2) {
+                            let key = (i * fi).toFixed() + ',' + (j * fj).toFixed();
+                            if (!DataMgr.myUser.buildingMap[key]) {
+                                let ij = new IJ();
+                                ij.i = i * fi;
+                                ij.j = j * fj;
+                                return ij;
+                            }
+                        }
+                }
+            }
+        };
+        this.currentBlueprintIJ = findEmptyIJ();
     }
     dragBlueprint(event: cc.Event.EventTouch) {
         let now = event.getLocation();
@@ -382,26 +404,30 @@ export default class CityUI extends BaseUI {
     onDemolishBtnClick() {
         let self = CityUI.Instance;
         if (this.selectedBuilding) {
-            DialogPanel.PopupWith2Buttons('确定拆除建筑吗',
-                self.selectedBuilding.info.Name
-                + '\n可回收部分建筑材料',
-                '取消', null,
-                '拆除', () => {
-                    let ij = JSON.parse('[' + this.selectedBuilding.node.name + ']');
-                    BlockchainMgr.Instance.callFunction('demolish', ij, 0,
-                        (resp) => {
-                            if (resp.toString().substr(0, 5) != 'Error') {
-                                DialogPanel.PopupWith2Buttons('正在递交拆除计划',
-                                    '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
-                                        window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
-                                    }, '确定', null);
-                            } else {
-                                ToastPanel.Toast('交易失败:' + resp);
+            if (this.selectedBuilding.info.id === 'hq') {
+                DialogPanel.PopupWith1Button('确定拆除总部吗？', '这玩意儿可不能拆！', '不拆不拆', null);
+            } else {
+                DialogPanel.PopupWith2Buttons('确定拆除建筑吗',
+                    self.selectedBuilding.info.Name
+                    + '\n可回收部分建筑材料',
+                    '取消', null,
+                    '拆除', () => {
+                        let ij = JSON.parse('[' + this.selectedBuilding.node.name + ']');
+                        BlockchainMgr.Instance.callFunction('demolish', ij, 0,
+                            (resp) => {
+                                if (resp.toString().substr(0, 5) != 'Error') {
+                                    DialogPanel.PopupWith2Buttons('正在递交拆除计划',
+                                        '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
+                                            window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
+                                        }, '确定', null);
+                                } else {
+                                    ToastPanel.Toast('交易失败:' + resp);
+                                }
                             }
-                        }
-                    );
-                    self.deselectBuilding();
-                });
+                        );
+                        self.deselectBuilding();
+                    });
+            }
         }
     }
     onBuildingInfoBtnClick() {
@@ -415,6 +441,7 @@ export default class CityUI extends BaseUI {
     onUpgradeBtnClick() {
         let self = CityUI.Instance;
         if (this.selectedBuilding) {
+            //TODO:升级面板
             let ironCost = DataMgr.getBuildingInfoItemWithLv(this.selectedBuilding.data.id, 'IronCost', this.selectedBuilding.data.lv + 1);
             DialogPanel.PopupWith2Buttons('升级' + self.selectedBuilding.info.Name + "到Lv" + (this.selectedBuilding.data.lv + 2),
                 "需要" + ironCost + '铁',

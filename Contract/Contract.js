@@ -448,6 +448,9 @@ GameContract.prototype = {
         if (!info) {
             throw new Error("Build Failed. CANNOT find buildingID." + buildingId);
         }
+        if (info.CanBuild !== '1') {
+            throw new Error("Upgrade Failed. CANNOT build or upgrade this buildingID." + buildingId);
+        }
         //cur Level
         let curLv = building.lv;
         if (curLv >= info.MaxLevel) {
@@ -516,11 +519,15 @@ GameContract.prototype = {
         if (!building) {
             throw new Error("Demolish Failed. (" + i + ',' + j + ") has no building.");
         }
-        let curLv = building.lv;
         let buildingId = building.id;
         //buildingInfo
         let info = this.allBuildingInfos.get(buildingId);
 
+        if (info.CanBuild !== '1') {
+            throw new Error("Build Failed. CANNOT build or demolish this buildingID." + buildingId);
+        }
+
+        let curLv = building.lv;
         //recycle buildMat
         for (let i = 0; i < 3; i++) {
             let itemName = "BuildMat" + i;

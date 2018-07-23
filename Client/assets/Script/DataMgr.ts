@@ -82,6 +82,20 @@ export class DataMgr {
         return user.expandMap[i + ',' + j]
     }
 
+    static fetchUserDataFromBlockchain(userAddress, callback?: (data) => void) {
+        BlockchainMgr.Instance.getFunction('getUser', [userAddress], (resp) => {
+            console.log('getUser resp:', resp);
+            try {
+                let data = JSON.parse(resp.result);
+                if (data) {
+                    this.allUsers[userAddress] = data;
+                    if (callback) callback(data);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    }
     private static getPirateInfo(index) {
         if (index >= this.totalPirateCnt) {
             throw new Error("index must < totalPirateCnt." + index + '<' + this.totalPirateCnt);
@@ -163,13 +177,14 @@ export class DataMgr {
         }
         return pirate;
     }
-    static fetchPirateDataFromBlockchain(pirateIndex) {
+    static fetchPirateDataFromBlockchain(pirateIndex, callback?: (data) => void) {
         BlockchainMgr.Instance.getFunction('getPirateInfo', [pirateIndex], (resp) => {
             console.log('getPirateInfo resp:', resp);
             try {
                 let data = JSON.parse(resp.result);
                 if (data) {
                     this.allPirates[pirateIndex] = data;
+                    if (callback) callback(DataMgr.getPirateData(pirateIndex));
                 }
             } catch (error) {
                 console.error(error);

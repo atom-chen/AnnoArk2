@@ -29,7 +29,7 @@ export default class CvsMain extends cc.Component {
         })
     }
 
-    static OpenPanel(panelType: any, callback: () => void) {
+    static OpenPanel(panelType: any, callback?: () => void) {
         try {
             if (panelType.Instance) {
                 panelType.Instance.node.active = true;

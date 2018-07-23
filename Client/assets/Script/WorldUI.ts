@@ -66,7 +66,11 @@ export default class WorldUI extends BaseUI {
     earth: cc.Node = null;
 
     @property(cc.Node)
-    grpSelectObject: cc.Node = null;
+    grpSelectOther: cc.Node = null;
+    @property(cc.Node)
+    grpSelectIsland: cc.Node = null;
+    @property(cc.Node)
+    grpSelectPirate: cc.Node = null;
     @property(cc.Node)
     grpSelectSpeArk: cc.Node = null;
     @property(cc.Node)
@@ -229,10 +233,10 @@ export default class WorldUI extends BaseUI {
             let island = this.focusedObjectNode.getComponent(Island);
             if (arkIW) {
                 this.grpSelectSpeArk.active = false;
-                this.grpSelectObject.active = false;
+                this.grpSelectIsland.active = false;
             } else if (pirate) {
                 this.grpSelectSpeArk.active = false;
-                this.grpSelectObject.active = false;
+                this.grpSelectIsland.active = false;
                 this.focusedInfoFrame.active = true;
 
                 this.focusedInfoFrame.position = this.focusedObjectNode.position;
@@ -259,15 +263,19 @@ export default class WorldUI extends BaseUI {
                     this.btnCollectIsland.node.active = false;
                 }
                 this.grpSelectSpeArk.active = false;
-                this.grpSelectObject.active = true;
+                this.grpSelectIsland.active = true;
             } else if (speArk) {
-                this.grpSelectObject.active = false;
+                this.grpSelectIsland.active = false;
                 this.grpSelectSpeArk.active = true;
             }
+            this.grpSelectPirate.active = pirate && true;
+            this.grpSelectOther.active = arkIW && arkIW.data.address !== DataMgr.myUser.address;
         } else {
             this.grpSelectSpeArk.active = false;
             this.selectFrame.active = false;
-            this.grpSelectObject.active = false;
+            this.grpSelectIsland.active = false;
+            this.grpSelectPirate.active = false;
+            this.grpSelectOther.active = false;
         }
 
         //选择目的地模式
@@ -460,14 +468,47 @@ export default class WorldUI extends BaseUI {
         });
     }
 
+    //其他玩家
+    onWatchCityClick() {
+        if (this.focusedObjectNode) {
+            const city = this.focusedObjectNode.getComponent(ArkInWorld);
+            if (city) {
+                DataMgr.fetchPirateDataFromBlockchain(city.data.address, (data) => {
+                    WatchPiratePanel.Instance.setAndRefresh(data);
+                });
+                CvsMain.OpenPanel(WatchPiratePanel, () => {
+                    WatchPiratePanel.Instance.setAndRefresh(city.data);
+                });
+            }
+        }
+    }
+    onTradeWithOtherClick() {
+        console.log('TODO: Trade');
+    }
+    onAttackOtherClick() {
+        if (this.focusedObjectNode) {
+            const city = this.focusedObjectNode.getComponent(ArkInWorld);
+            if (city) {
+                DataMgr.fetchPirateDataFromBlockchain(city.data.address, (data) => {
+                    AttackPiratePanel.Instance.setAndRefresh(data);
+                });
+                CvsMain.OpenPanel(AttackPiratePanel, () => {
+                    AttackPiratePanel.Instance.setAndRefresh(city.data);
+                });
+            }
+        }
+    }
     //海盗
     onWatchPirateClick() {
         if (this.focusedObjectNode) {
             const pirate = this.focusedObjectNode.getComponent(Pirate);
             if (pirate) {
-                DataMgr.fetchPirateDataFromBlockchain(pirate.index);
-                CvsMain.OpenPanel(WatchPiratePanel);
-                WatchPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+                DataMgr.fetchPirateDataFromBlockchain(pirate.index, (data) => {
+                    WatchPiratePanel.Instance.setAndRefresh(data);
+                });
+                CvsMain.OpenPanel(WatchPiratePanel, () => {
+                    WatchPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+                });
             }
         }
     }
@@ -475,9 +516,12 @@ export default class WorldUI extends BaseUI {
         if (this.focusedObjectNode) {
             const pirate = this.focusedObjectNode.getComponent(Pirate);
             if (pirate) {
-                DataMgr.fetchPirateDataFromBlockchain(pirate.index);
-                CvsMain.OpenPanel(AttackPiratePanel);
-                AttackPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+                DataMgr.fetchPirateDataFromBlockchain(pirate.index, (data) => {
+                    AttackPiratePanel.Instance.setAndRefresh(data);
+                });
+                CvsMain.OpenPanel(AttackPiratePanel, () => {
+                    AttackPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+                });
             }
         }
     }

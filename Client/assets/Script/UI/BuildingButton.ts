@@ -1,8 +1,8 @@
 import BuildPanel from "./BuildPanel";
-import { BuildingInfo, DataMgr, TechInfo } from "./DataMgr";
-import CityUI from "./CityUI";
-import CvsMain from "./CvsMain";
-import ToastPanel from "./UI/ToastPanel";
+import { DataMgr, BuildingInfo } from "../DataMgr";
+import ToastPanel from "./ToastPanel";
+import CvsMain from "../CvsMain";
+import CityUI from "../CityUI";
 
 const { ccclass, property } = cc._decorator;
 
@@ -20,8 +20,20 @@ export default class BuildingButton extends cc.Component {
     setAndRefresh(info: BuildingInfo) {
         this.info = info;
         this.lblName.string = info.Name;
-        let ironCost = info.IronCost;
-        this.lblConsumption.string = '原料 ' + ironCost + '铁';
+        //显示建筑材料
+        let curCargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);
+        let lines = [];
+        for (let i = 0; i < 3; i++) {
+            let itemName = "BuildMat" + i;
+            let cargoName = info[itemName];
+            if (cargoName) {
+                let cntItemName = itemName + "Cnt";
+                let needCnt = info[cntItemName];
+                let cargoInfo = DataMgr.getCargoInfo(cargoName);
+                lines.push(needCnt + ' ' + cargoInfo.Name);
+            }
+        }
+        this.lblConsumption.string = lines.join('\n');
     }
 
     onClick() {
@@ -30,10 +42,9 @@ export default class BuildingButton extends cc.Component {
     }
 
     onBuildClick() {
-        //检查建筑材料
         let info = this.info;
         let curCargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);
-        //check cargo & consume cargo
+        //check cargo
         let cargoEnough = true;
         for (let i = 0; i < 3; i++) {
             let itemName = "BuildMat" + i;
