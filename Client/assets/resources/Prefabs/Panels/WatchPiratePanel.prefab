@@ -369,7 +369,7 @@
     "target": {
       "__id__": 1
     },
-    "component": "AttackIslandPanel",
+    "component": "WatchPiratePanel",
     "handler": "close",
     "customEventData": ""
   },
@@ -2066,8 +2066,8 @@
     "target": {
       "__id__": 1
     },
-    "component": "AttackIslandPanel",
-    "handler": "onConfirmClick",
+    "component": "WatchPiratePanel",
+    "handler": "onAttackClick",
     "customEventData": ""
   },
   {

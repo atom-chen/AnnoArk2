@@ -1474,7 +1474,7 @@ GameContract.prototype = {
         }
         let seed = curPeriodTimestamp.toString() + index.toString();
         let random = this.APHash1(seed);//0~1
-        let lv = Math.floor(Math.pow(random, 3) * 15);//显示时+1
+        let lv = Math.floor(Math.pow(random, 3) * 15) + 1;
         let cargoMainFactor = lv * lv;//物资与lv^2成正比
         let armyMainFactor = lv * lv * lv;//部队数量与lv^3成正比
 
@@ -1513,7 +1513,7 @@ GameContract.prototype = {
         }
         for (let key in armyFactors) {
             let c = (this.APHash1(seed + key));
-            army[key] = Math.round(this.pirateArmyC0 * armyMainFactor * c * cargoFactors[key]);
+            army[key] = Math.round(this.pirateArmyC0 * armyMainFactor * c * armyFactors[key]);
         }
         pirateInfo.army = army;
         return pirateInfo;

@@ -26,7 +26,7 @@ export default class Pirate extends cc.Component {
 
     refreshData(data) {
         this.data = data;
-        this.lblLv.string = (data.lv + 1).toString();
+        this.lblLv.string = data.lv.toString();
     }
 
     refreshZoom(zoomScale: number) {

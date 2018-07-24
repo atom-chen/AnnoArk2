@@ -55,9 +55,9 @@ export default class AttackPiratePanel extends cc.Component {
         this.lblTitle.string = '海盗 #' + pirateData.index.toString();
         this.lblLv.string = pirateData.lv.toString();
 
-        this.lblDefTank.string = (pirateData.army.tank).toFixed();
-        this.lblDefChopper.string = (pirateData.army.chopper).toFixed();
-        this.lblDefShip.string = (pirateData.army.ship).toFixed();
+        this.lblDefTank.string = (pirateData.army.tank || 0).toFixed();
+        this.lblDefChopper.string = (pirateData.army.chopper || 0).toFixed();
+        this.lblDefShip.string = (pirateData.army.ship || 0).toFixed();
 
         this.SldAtkTank.progress = 0;
         this.SldAtkChopper.progress = 0;
