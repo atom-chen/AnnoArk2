@@ -765,7 +765,7 @@ GameContract.prototype = {
             curCityHull -= this.damagePerAttackCity;
             if (curCityHull > 0) {
                 //未沉没
-                curCityHull.healMaxTimestamp = curTime + (1 - curCityHull) / this.damagePerAttackCity * 3600e3;
+                user.healMaxTimestamp = curTime + (1 - curCityHull) / this.damagePerAttackCity * 3600e3;
             } else {
                 //沉没了
                 this._cityDestroy(user);

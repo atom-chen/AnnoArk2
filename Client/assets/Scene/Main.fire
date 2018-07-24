@@ -8138,6 +8138,12 @@
     },
     "grpInfo": {
       "__id__": 203
+    },
+    "spfIconMe": {
+      "__uuid__": "252961db-eb12-4f2d-a52e-8c646c3c3abc"
+    },
+    "spfIconOther": {
+      "__uuid__": "a801c72c-855c-4606-b391-6128ff476efc"
     }
   },
   {
@@ -13652,7 +13658,7 @@
       }
     ],
     "_tag": -1,
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 399
@@ -32582,9 +32588,7 @@
       "__id__": 835
     },
     "_enabled": true,
-    "_spriteFrame": {
-      "__uuid__": "611a84c4-1b3b-4e44-aeeb-605f6e6ddc86"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_sizeMode": 0,
     "_fillType": 0,
