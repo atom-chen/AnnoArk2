@@ -3,6 +3,7 @@ import { DataMgr, BuildingInfo } from "../DataMgr";
 import ToastPanel from "./ToastPanel";
 import CvsMain from "../CvsMain";
 import CityUI from "../CityUI";
+import CurrencyFormatter from "../Utils/CurrencyFormatter";
 
 const { ccclass, property } = cc._decorator;
 
@@ -21,7 +22,7 @@ export default class BuildingButton extends cc.Component {
         this.info = info;
         this.lblName.string = info.Name;
         //显示建筑材料
-        let curCargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);
+        // let curCargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);TODO:不够的红色
         let lines = [];
         for (let i = 0; i < 3; i++) {
             let itemName = "BuildMat" + i;
@@ -32,6 +33,10 @@ export default class BuildingButton extends cc.Component {
                 let cargoInfo = DataMgr.getCargoInfo(cargoName);
                 lines.push(needCnt + ' ' + cargoInfo.Name);
             }
+        }
+        let needMoney = Number(info.Money);
+        if (needMoney > 0) {
+            lines.push(CurrencyFormatter.formatNAS(needMoney) + DataMgr.coinUnit);
         }
         this.lblConsumption.string = lines.join('\n');
     }

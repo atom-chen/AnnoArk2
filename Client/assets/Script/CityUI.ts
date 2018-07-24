@@ -95,6 +95,7 @@ export default class CityUI extends BaseUI {
             this.refreshAll();
         }
 
+        //货物数据
         let cargoData = DataMgr.getUserCurrentCargoData(DataMgr.myUser);
         for (let i = 0; i < DataMgr.CargoConfig.length; i++) {
             const cargoInfo = DataMgr.CargoConfig[i];
@@ -109,6 +110,7 @@ export default class CityUI extends BaseUI {
             this.cargoLabels[cargoInfo.id].string = str;
         }
 
+        //放大缩小
         let prog = this.sldZoom.progress;
         if (!this.pressingZoomSlider) {
             if (prog > 0.5) {
@@ -130,15 +132,15 @@ export default class CityUI extends BaseUI {
             this.refreshZoom();
         }
 
+        //蓝图模式
         if (this.currentHoldingBlueprint) {
             this.blueprint.active = true;
             this.blueprint.position = new cc.Vec2(this.currentBlueprintIJ.i * 100, this.currentBlueprintIJ.j * 100);
-            this.lblExpandCost.node.active = false;
             let ableToBuild = true;
             this.grpBuild.active = true;
 
-            this.blueprint.setContentSize(100, 100);
-            this.blueprintIndicator.node.setContentSize(100, 100);
+            // this.blueprint.setContentSize(100, 100);
+            // this.blueprintIndicator.node.setContentSize(100, 100);
             let key = this.currentBlueprintIJ.i + ',' + this.currentBlueprintIJ.j;
             if (DataMgr.myUser.buildingMap[key]) {
                 ableToBuild = false;
@@ -149,11 +151,13 @@ export default class CityUI extends BaseUI {
             this.blueprintIndicator.node.color = ableToBuild ? this.canBuildColor : this.cannotBuildColor;
         } else if (this.expandModeContainer.active) {
             this.grpBuild.active = true;
-            this.lblExpandCost.node.active = true;
         } else {
             this.blueprint.active = false;
             this.grpBuild.active = false;
         }
+        this.lblExpandCost.node.active = this.expandModeContainer.active;
+
+        //选中状态
         if (this.selectedBuilding) {
             this.grpBuildingInfo.active = true;
             this.nodProduceButton.active = (this.selectedBuilding.getComponent(ProducerBuilding) != null);
@@ -199,7 +203,7 @@ export default class CityUI extends BaseUI {
         //building
         const buildingMap = DataMgr.myUser.buildingMap;
         for (let key in buildingMap) {
-            buildingMap[key].tmpDirty = true;
+            if (buildingMap[key]) buildingMap[key].tmpDirty = true;
         }
         this.buildingContainer.children.forEach(bdgNode => {
             let bdg = bdgNode.getComponent(Building);
@@ -217,19 +221,20 @@ export default class CityUI extends BaseUI {
             delete bdgOnChain.tmpDirty;
         });
         for (let key in buildingMap) {
-            if (buildingMap[key].tmpDirty) {
+            if (buildingMap[key] && buildingMap[key].tmpDirty) {
                 const data = buildingMap[key];
                 let info = DataMgr.getBuildingInfo(data.id);
                 let prefabName = info['Type'] + 'Template';
-                let buildingNode = cc.instantiate(this[prefabName]);
-                buildingNode.parent = this.buildingContainer;
-                buildingNode.name = key;
-                let building = buildingNode.getComponent(Building);
-                building.setInfo(info, data);
+                let bdgNode = cc.instantiate(this[prefabName]);
+                bdgNode.parent = this.buildingContainer;
+                bdgNode.name = key;
+                let bgd = bdgNode.getComponent(Building);
                 let ij = JSON.parse('[' + key + ']');
-                buildingNode.position = new cc.Vec2(ij[0] * 100, ij[1] * 100);
-                buildingNode.active = true;
-                console.log('createbd', key, data);
+                bgd.setInfo(info, data);
+                bgd.setIJ(ij[0], ij[1]);
+                bdgNode.position = new cc.Vec2(ij[0] * 100, ij[1] * 100);
+                bdgNode.active = true;
+                // console.log('createbd', key, data);
                 delete buildingMap[key].tmpDirty;
             }
         }
@@ -332,15 +337,16 @@ export default class CityUI extends BaseUI {
     }
     dragBlueprint(event: cc.Event.EventTouch) {
         let now = event.getLocation();
-        let touchPosInArkMap = this.cityMap.convertToNodeSpaceAR(now);
-        this.currentBlueprintIJ.i = Math.round(touchPosInArkMap.x / 100);
-        this.currentBlueprintIJ.j = Math.round(touchPosInArkMap.y / 100);
+        let touchPosInCityMap = this.cityMap.convertToNodeSpaceAR(now);
+        this.currentBlueprintIJ.i = Math.round(touchPosInCityMap.x / 100);
+        this.currentBlueprintIJ.j = Math.round(touchPosInCityMap.y / 100);
     }
     @property(cc.Node)
     grpBuild: cc.Node = null;
     @property(cc.Button)
     btnConfirmBuild: cc.Button = null;
     onBtnConfirmBuildClick() {
+        console.log('onBtnConfirmBuildClick', this.currentHoldingBlueprint, this.currentHoldingBlueprint instanceof BuildingInfo)
         if (this.expandModeContainer.active) {
             let expandModeContainer = this.expandModeContainer.getComponent(ExpandModeContainer);
             //确定扩建
@@ -367,12 +373,28 @@ export default class CityUI extends BaseUI {
             } else {
                 DialogPanel.PopupWith2Buttons('浮力模块存货不足', '强行发送区块链交易可能失败', '确定', null, '强行发送', callBlockchain);
             }
-        } else {
+        } else if (this.currentHoldingBlueprint && this.currentHoldingBlueprint.id) {
+            let money = this.currentHoldingBlueprint.Money;
             //确定建造
-            BlockchainMgr.Instance.callFunction('build', [this.currentBlueprintIJ.i, this.currentBlueprintIJ.j, this.currentHoldingBlueprint.id], 0,
+            BlockchainMgr.Instance.callFunction('build', [this.currentBlueprintIJ.i, this.currentBlueprintIJ.j, this.currentHoldingBlueprint.id], money,
                 (resp) => {
                     if (resp.toString().substr(0, 5) != 'Error') {
                         DialogPanel.PopupWith2Buttons('正在递交建造计划',
+                            '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
+                                window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
+                            }, '确定', null);
+                        this.currentHoldingBlueprint = null;
+                    } else {
+                        ToastPanel.Toast('交易失败:' + resp);
+                    }
+                }
+            );
+        } else if (this.currentHoldingBlueprint instanceof IJ) {
+            //确定移动建筑
+            BlockchainMgr.Instance.callFunction('moveBuilding', [this.currentHoldingBlueprint.i, this.currentHoldingBlueprint.j, this.currentBlueprintIJ.i, this.currentBlueprintIJ.j], 0,
+                (resp) => {
+                    if (resp.toString().substr(0, 5) != 'Error') {
+                        DialogPanel.PopupWith2Buttons('正在递交搬迁计划',
                             '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
                                 window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
                             }, '确定', null);
@@ -401,6 +423,16 @@ export default class CityUI extends BaseUI {
     }
     deselectBuilding() {
         this.selectedBuilding = null;
+    }
+    onMoveBuildingClick() {
+        if (this.selectedBuilding) {
+            let ij = this.selectedBuilding.ij;
+            this.currentHoldingBlueprint = ij;
+            this.currentBlueprintIJ = new IJ();
+            this.currentBlueprintIJ.i = ij.i;
+            this.currentBlueprintIJ.j = ij.j;
+            this.deselectBuilding();
+        }
     }
     onDemolishBtnClick() {
         let self = CityUI.Instance;

@@ -324,6 +324,7 @@ export class UserData {
 }
 export class BuildingInfo {
     id: string;
+    Order: number;
     Name: string;
     CanBuild;
     Type: string;

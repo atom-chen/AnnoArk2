@@ -421,7 +421,7 @@ GameContract.prototype = {
             lv: 0,
             recoverTime: curTime + info.MaxCD / 4,
             justBuildOrUpgrade: true,
-            money: value
+            money: value.valueOf() / 1e18
         };
 
         this.allUsers.set(userAddress, user);
@@ -501,7 +501,7 @@ GameContract.prototype = {
             throw new Error("moveBuilding Failed. (" + newIJ + ") has already had a building.");
         }
         user.buildingMap[newIJ] = user.buildingMap[oldIJ];
-        user.buildingMap[oldIJ] = null;
+        delete user.buildingMap[oldIJ];
 
         this.allUsers.set(userAddress, user);
         return {
@@ -540,8 +540,8 @@ GameContract.prototype = {
         }
 
         //return reserve money
-        if (building.value > 0) {
-            this._transaction(userAddress, building.value);
+        if (building.money > 0) {
+            this._transaction(userAddress, new BigNumber(building.money).mul(new BigNumber(1e18)));
         }
 
         //demolish!
@@ -1597,12 +1597,18 @@ GameContract.prototype = {
 
         this.totalNas = this.totalNas.minus(value);
         this._transaction(targetAddress, new BigNumber(value));
+        return {
+            "success": true,
+        }
     },
     changeConst: function (constName, value) {
         if (Blockchain.transaction.from !== this.adminAddress) {
             throw new Error("Permission denied.");
         }
         this[constName] = value;
+        return {
+            "success": true,
+        }
     },
     setBuildingInfo: function (infoArray) {
         if (Blockchain.transaction.from != this.adminAddress) {
