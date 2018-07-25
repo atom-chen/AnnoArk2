@@ -5,7 +5,6 @@ import { DataMgr } from "./DataMgr";
 import BlockchainMgr from "./BlockchainMgr";
 import HomeUI from "./HomeUI";
 import Island from "./World/Island";
-import AttackIslandPanel from "./UI/AttackIslandPanel";
 import CurrencyFormatter from "./Utils/CurrencyFormatter";
 import SponsorIslandPanel from "./UI/SponsorIslandPanel";
 import IslandInfoFrame from "./UI/IslandInfoFrame";
@@ -39,15 +38,18 @@ export default class WorldUI extends BaseUI {
         this.panPad.on(cc.Node.EventType.MOUSE_WHEEL, this.onMouseWheel, this);
         this.panPad.on(cc.Node.EventType.TOUCH_END, this.onPanPadTouchEnd, this);
 
-        // cc.systemEvent.on(cc.SystemEvent.EventType.)
-
-        this.initIslandInfoFrames();
+        this.cityTemplate.active = false;
+        this.pirateTemplate.active = false;
+        this.islandTemplate.active = false;
     }
 
     @property(cc.Node)
     mineContainer: cc.Node = null;
+
     @property(cc.Node)
     islandContainer: cc.Node = null;
+    @property(cc.Node)
+    islandTemplate: cc.Node = null;
 
     @property(cc.Node)
     cityContainer: cc.Node = null;
@@ -118,9 +120,6 @@ export default class WorldUI extends BaseUI {
         } catch (e) {
             console.error(e);
         }
-
-        this.cityTemplate.active = false;
-        this.pirateTemplate.active = false;
     }
     onBtnBackClick() {
         CvsMain.EnterUI(HomeUI);
@@ -128,31 +127,35 @@ export default class WorldUI extends BaseUI {
 
     refreshData() {
         //cities
-        // if (this.togOtherPlayer.isChecked) {
-        let neededCount = Object.keys(DataMgr.allUsers).length;
-        for (let i = this.cityContainer.childrenCount; i < neededCount; i++) {
-            let node = cc.instantiate(this.cityTemplate);
-            node.parent = this.cityContainer;
-            node.active = true;
-            node.on(cc.Node.EventType.TOUCH_MOVE, this.onPanPadTouchMove, this);
-            node.on(cc.Node.EventType.MOUSE_WHEEL, this.onMouseWheel, this);
-        }
-        let needToDestroys: cc.Node[] = [];
-        for (let i = neededCount; i < this.cityContainer.childrenCount; i++) {
-            needToDestroys.push(this.cityContainer.children[i]);
-        }
-        needToDestroys.forEach(c => c.destroy());
+        if (this.togOtherPlayer.isChecked) {
+            let neededCount = Object.keys(DataMgr.allUsers).length;
+            for (let i = this.cityContainer.childrenCount; i < neededCount; i++) {
+                let node = cc.instantiate(this.cityTemplate);
+                node.parent = this.cityContainer;
+                node.active = true;
+                node.on(cc.Node.EventType.TOUCH_MOVE, this.onPanPadTouchMove, this);
+                node.on(cc.Node.EventType.MOUSE_WHEEL, this.onMouseWheel, this);
+            }
+            let needToDestroys: cc.Node[] = [];
+            for (let i = neededCount; i < this.cityContainer.childrenCount; i++) {
+                needToDestroys.push(this.cityContainer.children[i]);
+            }
+            needToDestroys.forEach(c => c.destroy());
 
-        let i = 0;
-        for (let address in DataMgr.allUsers) {
-            const data = DataMgr.allUsers[address];
-            this.cityContainer.children[i].getComponent(ArkInWorld).setAndRefresh(data, this.zoomScale);
-            i++;
+            let i = 0;
+            for (let address in DataMgr.allUsers) {
+                const data = DataMgr.allUsers[address];
+                this.cityContainer.children[i].getComponent(ArkInWorld).setAndRefresh(data, this.zoomScale);
+                i++;
+            }
+            this.cityContainer.active = true;
+        } else {
+            this.cityContainer.active = false;
         }
 
         //pirate
         if (this.togPirate.isChecked) {
-            neededCount = DataMgr.totalPirateCnt;
+            let neededCount = DataMgr.totalPirateCnt;
             for (let i = this.pirateContainer.childrenCount; i < neededCount; i++) {
                 let node = cc.instantiate(this.pirateTemplate);
                 node.parent = this.pirateContainer;
@@ -160,7 +163,7 @@ export default class WorldUI extends BaseUI {
                 node.on(cc.Node.EventType.TOUCH_MOVE, this.onPanPadTouchMove, this);
                 node.on(cc.Node.EventType.MOUSE_WHEEL, this.onMouseWheel, this);
             }
-            needToDestroys = [];
+            let needToDestroys = [];
             for (let i = neededCount; i < this.pirateContainer.childrenCount; i++) {
                 needToDestroys.push(this.pirateContainer.children[i]);
             }
@@ -171,6 +174,33 @@ export default class WorldUI extends BaseUI {
             this.pirateContainer.active = true;
         } else {
             this.pirateContainer.active = false;
+        }
+
+        //island
+        if (this.togDiamond.isChecked) {
+            let neededCount = Object.keys(DataMgr.allIslandData).length;
+            for (let i = this.islandContainer.childrenCount; i < neededCount; i++) {
+                let node = cc.instantiate(this.islandTemplate);
+                node.parent = this.islandContainer;
+                node.active = true;
+                node.on(cc.Node.EventType.TOUCH_MOVE, this.onPanPadTouchMove, this);
+                node.on(cc.Node.EventType.MOUSE_WHEEL, this.onMouseWheel, this);
+            }
+            let needToDestroys: cc.Node[] = [];
+            for (let i = neededCount; i < this.islandContainer.childrenCount; i++) {
+                needToDestroys.push(this.islandContainer.children[i]);
+            }
+            needToDestroys.forEach(c => c.destroy());
+
+            let i = 0;
+            for (let index in DataMgr.allIslandData) {
+                const data = DataMgr.allIslandData[index];
+                this.islandContainer.children[i].getComponent(Island).setData(data);
+                i++;
+            }
+            this.islandContainer.active = true;
+        } else {
+            this.islandContainer.active = false;
         }
 
         this.refreshCountdown = 2;
@@ -231,13 +261,11 @@ export default class WorldUI extends BaseUI {
             let pirate = this.focusedObjectNode.getComponent(Pirate);
             let island = this.focusedObjectNode.getComponent(Island);
             if (arkIW) {
+                //其他玩家
                 this.grpSelectSpeArk.active = false;
                 this.grpSelectIsland.active = false;
             } else if (pirate) {
-                this.grpSelectSpeArk.active = false;
-                this.grpSelectIsland.active = false;
-                this.focusedInfoFrame.active = true;
-
+                //海盗
                 this.focusedInfoFrame.position = this.focusedObjectNode.position;
                 this.lblSelectInfo0.string = `Lv ${pirate.data.lv + 1}`;
                 this.lblSelectInfo1.string =
@@ -245,14 +273,19 @@ export default class WorldUI extends BaseUI {
 无人机 ${pirate.data.army.tank ? pirate.data.army.tank.toFixed() : 0}
 炮舰 ${pirate.data.army.tank ? pirate.data.army.tank.toFixed() : 0}
 浮力模块 ${pirate.data.cargo.floatmod ? pirate.data.cargo.floatmod.toFixed() : 0}`;
+
+                this.grpSelectSpeArk.active = false;
+                this.grpSelectIsland.active = false;
+                this.focusedInfoFrame.active = true;
             } else if (island) {
+                //钻石岛
                 this.btnSponsorLink.getComponentInChildren(cc.Label).string =
                     island.data.sponsorName ? island.data.sponsorName : '无赞助商';
                 if (island.data.occupant && DataMgr.myUser && island.data.occupant == DataMgr.myUser.address) {
                     this.lblAttackButton.string = '追加\n驻军';
                     const t0 = island.data.lastMineTime;
-                    const t1 = Number(new Date());
-                    const t = (t1 - t0) / (1000 * 3600);//h
+                    const t1 = DataMgr.getBlockchainTimestamp();
+                    const t = (t1 - t0) / (3600e3);//h
                     const r = island.data.miningRate;
                     const m = island.data.money * (1 - Math.exp(-r * t)) / 1e18;
                     this.btnCollectIsland.node.active = true;
@@ -261,6 +294,15 @@ export default class WorldUI extends BaseUI {
                     this.lblAttackButton.string = '攻占';
                     this.btnCollectIsland.node.active = false;
                 }
+
+                this.focusedInfoFrame.position = this.focusedObjectNode.position;
+
+                let amIOccupant = DataMgr.myUser.address == island.data.occupant;
+                let curMoney = DataMgr.calcCurrentMoneyInIsland(island.data);
+                let speed = island.data.miningRate * curMoney / 1e18;
+                this.lblSelectInfo0.string = CurrencyFormatter.formatNAS(speed) + DataMgr.coinUnit + '/h';
+                this.lblSelectInfo1.string = '储量' + CurrencyFormatter.formatNAS(curMoney / 1e18) + DataMgr.coinUnit + '\n' + (amIOccupant ? '<color=#00ff00>我军占领</color>' : '<color=#ff0000>他人占领</color>');
+
                 this.grpSelectSpeArk.active = false;
                 this.grpSelectIsland.active = true;
             } else if (speArk) {
@@ -388,14 +430,25 @@ export default class WorldUI extends BaseUI {
         }
         const island = this.focusedObjectNode ? this.focusedObjectNode.getComponent(Island) : null;
         if (!island) return;
-        CvsMain.OpenPanel(AttackIslandPanel);
-        AttackIslandPanel.Instance.setAndRefresh(island);
+        CvsMain.OpenPanel(CityInfoPanel, () => CityInfoPanel.Instance.setAndRefreshIsland(island.data, 'watch'));
     }
     onBtnCollectIslandClick() { //收获
         const island = this.focusedObjectNode ? this.focusedObjectNode.getComponent(Island) : null;
         if (!island) return;
         if (island.data.occupant == DataMgr.myUser.address) {
-            BlockchainMgr.Instance.collectIslandMoney(island.data.id);
+            BlockchainMgr.Instance.callFunction('collectIslandMoney', [island.data.index], 0, (resp) => {
+                console.log("collectIslandMoney: ", resp);
+                if (resp.toString().substr(0, 5) != 'Error') {
+                    DialogPanel.PopupWith2Buttons('准备收取数字货币',
+                        '区块链交易已发送，等待出块\nTxHash:' + resp.txhash, '查看交易', () => {
+                            window.open('https://explorer.nebulas.io/#/tx/' + resp.txhash);
+                        }, '确定', null);
+
+                    WorldUI.Instance.editSailDestinationMode = false;
+                } else {
+                    ToastPanel.Toast('交易失败:' + resp);
+                }
+            });
         }
     }
     onIslandSponsorLinkClick() {
@@ -407,8 +460,8 @@ export default class WorldUI extends BaseUI {
     onIslandIWantSponsorClick() {
         const island = this.focusedObjectNode ? this.focusedObjectNode.getComponent(Island) : null;
         if (island) {
-            CvsMain.OpenPanel(SponsorIslandPanel);
-            SponsorIslandPanel.Instance.setData(island);
+            console.log('onIslandIWantSponsorClick')
+            CvsMain.OpenPanel(SponsorIslandPanel, () => { SponsorIslandPanel.Instance.setData(island); });
         }
     }
 
@@ -526,18 +579,18 @@ export default class WorldUI extends BaseUI {
     }
 
     //岛屿初始化
-    @property(cc.Node)
-    islandInfoFrameTemplate: cc.Node = null;
-    initIslandInfoFrames() {
-        this.islandContainer.children.forEach(islandNode => {
-            let frm = cc.instantiate(this.islandInfoFrameTemplate);
-            frm.parent = islandNode;
-            frm.position = this.islandInfoFrameTemplate.position;
-            islandNode.getComponent(Island).infoFrame = frm.getComponent(IslandInfoFrame);
-            frm.active = true;
-        });
-        this.islandInfoFrameTemplate.active = false;
-    }
+    // @property(cc.Node)
+    // islandInfoFrameTemplate: cc.Node = null;
+    // initIslandInfoFrames() {
+    //     this.islandContainer.children.forEach(islandNode => {
+    //         let frm = cc.instantiate(this.islandInfoFrameTemplate);
+    //         frm.parent = islandNode;
+    //         frm.position = this.islandInfoFrameTemplate.position;
+    //         islandNode.getComponent(Island).infoFrame = frm.getComponent(IslandInfoFrame);
+    //         frm.active = true;
+    //     });
+    //     this.islandInfoFrameTemplate.active = false;
+    // }
 
     //信息过滤
     onFilterToggle() {

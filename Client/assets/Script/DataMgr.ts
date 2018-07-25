@@ -1,4 +1,3 @@
-import WorldUI from "./WorldUI";
 import MathUtil from "./Utils/MathUtil";
 import BlockchainMgr from "./BlockchainMgr";
 
@@ -365,21 +364,20 @@ export class MineInfo {
     points: cc.Vec2[];
 }
 export class IslandData {
-    location: cc.Vec2;
-    id: number;
-    occupant: string; //当前占领者addr
-    tankPower: number = 0;
-    chopperPower: number = 0;
-    shipPower: number = 0;
+    index: number;
+    x: number;
+    y: number;
+    occupant: string; //当前占领者address
+    lastMineTime: number; // 上次开始挖矿的时间
+    army: { tank: 0, chopper: 0, ship: 0 };
     money: number = 0; //里面还有多少nas
-    sponsor: string;//赞助商账号
+    sponsor: string;//赞助商address
     sponsorName: string = '';//赞助商名称
     sponsorLink: string;//赞助商链接
-    // minMiningSpeed: number = 0.04167; //NAS/h 挖矿速度
+    sponsorPic: string;//赞助商图片地址
     miningRate: number = 0.02;///h 挖矿百分比速度，实际挖矿速度=max(minMiningSpeed, money*miningRate）
-    balanceMap: number = 0; //当前占领者可收获的NAS
-    lastMineTime: number; //当前数据的时间戳
-    lastBattleTime: number;
+    mineBalance: number = 0; //当前占领者可收获的NAS
+    lastCalcTime: number;
 }
 export class IJ {
     i: number = 0;

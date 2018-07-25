@@ -2,6 +2,8 @@ import { DataMgr, UserData, IslandData } from "../DataMgr";
 import BlockchainMgr from "../BlockchainMgr";
 import ToastPanel from "./ToastPanel";
 import DialogPanel from "./DialogPanel";
+import CurrencyFormatter from "../Utils/CurrencyFormatter";
+import { FlagMgr } from "./FlagMgr";
 
 const { ccclass, property } = cc._decorator;
 
@@ -9,6 +11,10 @@ const { ccclass, property } = cc._decorator;
 export default class CityInfoPanel extends cc.Component {
     static Instance: CityInfoPanel;
     onLoad() { CityInfoPanel.Instance = this; }
+
+    static readonly attackUserDistanceLimit = 100;
+    static readonly attackPirateDistanceLimit = 300;
+    static readonly attackIslandDistanceLimit = 100;
 
     @property(cc.Label)
     lblTitle: cc.Label = null;
@@ -33,6 +39,8 @@ export default class CityInfoPanel extends cc.Component {
     grpWatchIsland: cc.Node = null;
     @property(cc.Node)
     grpWatchCityUser: cc.Node = null;
+    @property(cc.Node)
+    grpLv: cc.Node = null;
 
     @property(cc.Label)
     lblHull: cc.Label = null;
@@ -42,6 +50,8 @@ export default class CityInfoPanel extends cc.Component {
     cargoFrameContainer: cc.Node = null;
     cargoFrameList = [];
 
+    @property(cc.Label)
+    lblDistanceLimit: cc.Label = null;
     @property(cc.Label)
     lblAtkTankMax: cc.Label = null;
     @property(cc.Label)
@@ -63,6 +73,21 @@ export default class CityInfoPanel extends cc.Component {
     @property(cc.Label)
     lblDistance: cc.Label = null;
 
+    @property(cc.Label)
+    lblMineRate: cc.Label = null;
+    @property(cc.Label)
+    lblOccupantNickname: cc.Label = null;
+    @property(cc.Label)
+    lblOccupantAddress: cc.Label = null;
+    @property(cc.Label)
+    lblTotalMoney: cc.Label = null;
+    @property(cc.Label)
+    lblWantToAttack: cc.Label = null;
+    @property(cc.Label)
+    lblConfirmAttack: cc.Label = null;
+    @property(cc.Sprite)
+    sprFlag: cc.Sprite = null;
+
     tankMax = 0;
     chopperMax = 0;
     shipMax = 0;
@@ -83,6 +108,8 @@ export default class CityInfoPanel extends cc.Component {
         this.lblDefTank.string = (cargoData['tank'] || 0).toFixed();
         this.lblDefChopper.string = (cargoData['chopper'] || 0).toFixed();
         this.lblDefShip.string = (cargoData['ship'] || 0).toFixed();
+
+        this.lblDistanceLimit.string = CityInfoPanel.attackUserDistanceLimit + 'km';
 
         switch (mode) {
             case 'watch':
@@ -128,6 +155,8 @@ export default class CityInfoPanel extends cc.Component {
                     break;
                 }
         }
+        this.grpLv.active = true;
+        this.refreshDistance();
     }
     setAndRefreshPirate(pirateData: any, mode: string) {
         this.user = null;
@@ -140,6 +169,8 @@ export default class CityInfoPanel extends cc.Component {
         this.lblDefTank.string = (pirateData.army.tank || 0).toFixed();
         this.lblDefChopper.string = (pirateData.army.chopper || 0).toFixed();
         this.lblDefShip.string = (pirateData.army.ship || 0).toFixed();
+
+        this.lblDistanceLimit.string = CityInfoPanel.attackPirateDistanceLimit + 'km';
 
         switch (mode) {
             case 'watch':
@@ -186,8 +217,69 @@ export default class CityInfoPanel extends cc.Component {
                     break;
                 }
         }
+        this.grpLv.active = true;
+        this.refreshDistance();
     }
+    setAndRefreshIsland(data: IslandData, mode: string) {
+        this.user = null;
+        this.islandData = data;
+        this.pirateData = null;
 
+        this.lblTitle.string = '钻石岛 sponsered by ' + data.sponsorName;
+
+        if (data.occupant && data.occupant.length > 0) {
+            let occupantUser: UserData = DataMgr.allUsers[data.occupant];
+            FlagMgr.setFlag(this.sprFlag, occupantUser ? occupantUser.country : null);
+            this.lblOccupantNickname.string = occupantUser ? occupantUser.nickname : '';
+        } else {
+            this.lblOccupantNickname.string = '(无)';
+        }
+        this.lblOccupantAddress.string = data.occupant;
+
+        this.lblDefTank.string = (data.army.tank || 0).toFixed();
+        this.lblDefChopper.string = (data.army.chopper || 0).toFixed();
+        this.lblDefShip.string = (data.army.ship || 0).toFixed();
+
+        this.lblDistanceLimit.string = CityInfoPanel.attackIslandDistanceLimit + 'km';
+
+        let amIOccupant = DataMgr.myUser.address == data.occupant;
+        switch (mode) {
+            case 'watch':
+                {
+                    this.lblWantToAttack.string = amIOccupant ? '追加' : '进攻';
+
+                    this.grpWatch.active = true;
+                    this.grpAttack.active = false;
+                    this.grpWatchCity.active = false;
+                    this.grpWatchIsland.active = true;
+                    this.grpWatchCityUser.active = false;
+                    break;
+                }
+            case 'attack':
+                {
+                    this.lblConfirmAttack.string = amIOccupant ? '追加' : '进攻';
+
+                    let powerAttenuRate = 0.05;
+                    let hoursDelta = (DataMgr.getBlockchainTimestamp() - data.lastCalcTime) / (3600e3);
+                    let attenu = Math.exp(-powerAttenuRate * hoursDelta);
+                    this.lblDefTank.string = ((data.army.tank || 0) * attenu).toFixed();
+                    this.lblDefChopper.string = ((data.army.chopper || 0) * attenu).toFixed();
+                    this.lblDefShip.string = ((data.army.ship || 0) * attenu).toFixed();
+                    this.SldAtkTank.progress = 0;
+                    this.SldAtkChopper.progress = 0;
+                    this.SldAtkShip.progress = 0;
+                    this.onSliderChange(null, 'Tank');
+                    this.onSliderChange(null, 'Chopper');
+                    this.onSliderChange(null, 'Ship');
+
+                    this.grpWatch.active = false;
+                    this.grpAttack.active = true;
+                    break;
+                }
+        }
+        this.grpLv.active = false;
+        this.refreshDistance();
+    }
     onSliderChange(event, cargoName: string) {
         switch (cargoName) {
             case 'Tank':
@@ -239,11 +331,15 @@ export default class CityInfoPanel extends cc.Component {
                     this.shipMax = Math.floor(cargoData['ship']);
                     this.lblAtkShipMax.string = '/' + this.shipMax.toFixed();
 
-                    if (this.grpAttack.active) {
-                        this.refreshDistance();
-                    }
+                    this.refreshDistance();
                     break;
                 }
+        }
+        if (this.islandData) {
+            let curMoney = DataMgr.calcCurrentMoneyInIsland(this.islandData);
+            let speed = this.islandData.miningRate * curMoney / 1e18;
+            this.lblMineRate.string = CurrencyFormatter.formatNAS(speed) + DataMgr.coinUnit + '/h';
+            this.lblTotalMoney.string = CurrencyFormatter.formatNAS(curMoney / 1e18) + DataMgr.coinUnit;
         }
     }
 
@@ -253,6 +349,8 @@ export default class CityInfoPanel extends cc.Component {
             location = DataMgr.getUserCurrentLocation(this.user);
         } else if (this.pirateData) {
             location = new cc.Vec2(this.pirateData.x, this.pirateData.y);
+        } else if (this.islandData) {
+            location = new cc.Vec2(this.islandData.x, this.islandData.y);
         }
         const distance = location.sub(DataMgr.getUserCurrentLocation(DataMgr.myUser)).mag();
         this.lblDistance.string = distance.toFixed() + 'km';
@@ -273,14 +371,21 @@ export default class CityInfoPanel extends cc.Component {
             };
             refresh(DataMgr.getPirateData(this.pirateData.index));
             DataMgr.fetchPirateDataFromBlockchain(this.pirateData.index, refresh);
+        } else if (this.islandData) {
+            console.log('想要攻打钻石岛', this.islandData.index);
+            const refresh = (data) => {
+                CityInfoPanel.Instance.setAndRefreshIsland(data, 'attack');
+            };
+            refresh(DataMgr.allIslandData[this.islandData.index]);
+            // DataMgr.fetchPirateDataFromBlockchain(this.pirateData.index, refresh);
         }
     }
     onConfirmAttackClick() {
+        const myPos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
         if (this.user) {
-            console.log('想要攻打玩家', this.user.address);
+            console.log('确认攻打玩家', this.user.address);
 
             const location = DataMgr.getUserCurrentLocation(this.user);
-            const myPos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
             const distance = location.sub(myPos).mag();
 
             if (distance > 100) {
@@ -289,11 +394,10 @@ export default class CityInfoPanel extends cc.Component {
                 this.confirmAttack();
             }
         } else if (this.pirateData) {
-            console.log('想要攻打海盗', this.pirateData.index);
+            console.log('确认攻打海盗', this.pirateData.index);
 
-            const pirateLocation = new cc.Vec2(this.pirateData.x, this.pirateData.y);
-            const myPos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
-            const distance = pirateLocation.sub(myPos).mag();
+            const location = new cc.Vec2(this.pirateData.x, this.pirateData.y);
+            const distance = location.sub(myPos).mag();
 
             if (distance > 300) {
                 DialogPanel.PopupWith2Buttons('警告：可能失败的区块链调用', '距离300km之内才能攻打海盗，强行发送交易可能会失败。', '确定', null, '强行发送', this.confirmAttack.bind(this));
@@ -301,6 +405,17 @@ export default class CityInfoPanel extends cc.Component {
             }
 
             this.confirmAttack();
+        }
+        else if (this.islandData) {
+            const location = new cc.Vec2(this.islandData.x, this.islandData.y);
+            const distance = location.sub(myPos).mag();
+
+            if (distance > 100) {
+                DialogPanel.PopupWith2Buttons('警告：可能失败的区块链调用', '距离100km之内才能攻打其他玩家，强行发送交易可能会失败。', '确定', null, '强行发送', this.confirmAttack.bind(this));
+            } else {
+                this.confirmAttack();
+            }
+
         }
     }
 
@@ -326,7 +441,16 @@ export default class CityInfoPanel extends cc.Component {
             BlockchainMgr.Instance.callFunction('attackPirate',
                 [this.pirateData.index, { tank: tank, chopper: chopper, ship: ship }], 0, callback
             );
+        } else if (this.islandData) {
+            BlockchainMgr.Instance.callFunction('attackIsland',
+                [this.islandData.index, { tank: tank, chopper: chopper, ship: ship }], 0, callback
+            );
         }
+    }
+
+    onOccupantClick() {
+        //打开区块链浏览器
+        window.open(BlockchainMgr.getExplorerOfAccount(this.islandData.occupant));
     }
 
     close() {

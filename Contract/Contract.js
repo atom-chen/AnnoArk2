@@ -69,11 +69,12 @@ let Island = function (jsonStr) {
         this.occupant = "";
         this.lastMineTime = 0; // 上次开始挖矿的时间
         this.army = {};
-        this.money = new BigNumber(0);
+        this.money = 0;
         this.sponsor = "";
         this.sponsorName = "";
         this.sponsorLink = "";
-        this.miningRate = new BigNumber(0.02);
+        this.sponsorPic = "";
+        this.miningRate = 0.02;
         this.mineBalance = 0;
         this.lastCalcTime = 0;
     }
@@ -787,7 +788,8 @@ GameContract.prototype = {
 
     //=====Diamond Island
     attackIsland: function (islandIndex, army) {
-        let island = this.allIslands.get(islandIndex);
+        let allIslands = this.allIslands;
+        let island = allIslands[islandIndex];
         let userAddress = Blockchain.transaction.from;
         let user = this.allUsers.get(userAddress);
         let curTime = (new Date()).valueOf();
@@ -807,13 +809,15 @@ GameContract.prototype = {
             throw new Error("Too far from the island." + islandIndex + ", distance:" + dist);
         }
 
-        let powerAttenuRate = new BigNumber(0.05);
-        let hoursDelta = (new BigNumber(curTime - island.lastBattleTime)).div(1000 * 3600);
-        let attenu = Math.exp(powerAttenuRate.times(hoursDelta).negated());
-        for (let key in island.army) {
-            island.army[key] = Math.round(island.army[key] * attenu);
+        if (island.occupant !== "") {
+            let powerAttenuRate = new BigNumber(0.05);
+            let hoursDelta = (new BigNumber(curTime - island.lastCalcTime)).div(1000 * 3600);
+            let attenu = Math.exp(powerAttenuRate.times(hoursDelta).negated());
+            for (let key in island.army) {
+                island.army[key] = Math.round(island.army[key] * attenu);
+            }
         }
-        island.lastBattleTime = curTime;
+        island.lastCalcTime = curTime;
         if (island.occupant === "" || island.occupant === userAddress) { // 没有被占领或者自己占领
             if (island.occupant === "") {
                 island.lastMineTime = curTime;
@@ -831,8 +835,12 @@ GameContract.prototype = {
                 }
             }
 
-            this.allIslands.set(islandIndex, island);
+            allIslands[islandIndex] = island;
             this.allUsers.set(userAddress, user);
+
+            allIslands[islandIndex] = island;
+            this.allIslands = allIslands;
+
             return {
                 "success": true,
                 "result_data": user,
@@ -842,9 +850,8 @@ GameContract.prototype = {
             let res = this._battle(island.army.tank, island.army.chopper, 0, army.tank, army.chopper, 0)
             if (res["win"]) { // 防守失败
                 this._collectIslandMoneyInternal(island); // 把上个玩家挖到的钱发给该玩家
-                island = this.allIslands.get(islandIndex); // 这边要重新获取，因为money会改变
+                island = allIslands[islandIndex]; // 这边要重新获取，因为money会改变
                 island.occupant = userAddress;
-                island.lastMineTime = curTime;
             }
             island.army.tank = res['left'][0];
             island.army.chopper = res['left'][1];
@@ -859,20 +866,26 @@ GameContract.prototype = {
 
             this.allUsers.set(userAddress, user);
 
-            this.allIslands.set(islandIndex, island);
+            allIslands[islandIndex] = island;
+            this.allIslands = allIslands;
+
             return {
                 "success": res["win"],
                 "result_data": island
             };
         }
     },
-    collectIslandMoney: function (islandId) {
-        let island = this.allIslands.get(islandId);
+    collectIslandMoney: function (islandIndex) {
+        let allIslands = this.allIslands;
+        let island = allIslands[islandIndex];
         let userAddress = Blockchain.transaction.from;
         if (island === null || island.occupant !== userAddress) {
-            throw new Error("Error island id.")
+            throw new Error("Error island." + island)
         }
         let mineMoney = this._collectIslandMoneyInternal(island);
+
+        allIslands[islandIndex] = island;
+        this.allIslands = allIslands;
 
         return {
             "success": true,
@@ -882,14 +895,15 @@ GameContract.prototype = {
     _collectIslandMoneyInternal: function (island) {
         let curTime = (new Date()).valueOf();
         let hoursDelta = (new BigNumber(curTime - island.lastMineTime)).div(1000 * 3600);
-        let leftNas = island.money.times(Math.exp(island.miningRate.times(hoursDelta).negated()).toString()).trunc();
-        let miningNas = island.money.minus(leftNas);
+        let leftNas = island.money * Math.exp(-island.miningRate * hoursDelta);
+        let miningNas = Math.floor((island.money - leftNas) / 1e9) * 1e9;
 
         island.money = leftNas;
         island.lastMineTime = curTime;
-        this.allIslands.set(island.id, island);
-        this._transaction(island.occupant, miningNas);
-
+        this.allIslands[island.id] = island;
+        if (miningNas > 0) {
+            this._transaction(island.occupant, miningNas);
+        }
         return miningNas;
     },
 
@@ -1166,19 +1180,17 @@ GameContract.prototype = {
         // });
     },
     //=====Sponsor
-    sponsor: function (islandId, sponsorName, link, ) {
-        let island = this.allIslands.get(islandId);
+    sponsor: function (islandIndex, sponsorName, link, pic) {
+        let allIslands = this.allIslands;
+        let island = allIslands[islandIndex];
         let value = Blockchain.transaction.value;
         let userAddress = Blockchain.transaction.from;
-        let res;
         if (island === null) {
-            throw new Error("Error island id.");
+            throw new Error("Error island index." + islandIndex);
         }
-        if (miningSpeed < 0.001) {
-            throw new Error("miningSpeed must >= 0.001NAS/h." + miningSpeed);
-        }
-        this._collectIslandMoneyInternal(islandId);
-        if (island.sponsor !== userAddress && value < island.money.times(1.2)) {
+        console.log('sponsor1178|', island.money * 1.2);
+        this._collectIslandMoneyInternal(island);
+        if (island.sponsor !== userAddress && value < island.money * 1.2) {
             throw new Error("value must > current money * 1.2. value:" + value + ", island.money:" + island.money);
         }
         if (island.sponsor !== userAddress) {
@@ -1193,8 +1205,10 @@ GameContract.prototype = {
         this.totalNas = value.plus(this.totalNas);
         island.sponsorName = sponsorName;
         island.sponsorLink = link;
+        island.sponsorPic = pic;
 
-        this.allIslands.set(islandId, island);
+        allIslands[islandIndex] = island;
+        this.allIslands = allIslands;
 
         return {
             "success": true,
@@ -1444,7 +1458,7 @@ GameContract.prototype = {
         });
         let islands = [];
         for (let i = 0; i < this.allIslands.length; i++) {
-            islands.push(this.allIslands.get(i));
+            islands.push(this.allIslands[i]);
         }
         //TODO: Pirate
         return {
@@ -1658,17 +1672,18 @@ GameContract.prototype = {
         if (Blockchain.transaction.from != this.adminAddress) {
             throw new Error("Permission denied.");
         }
-        if (infoArray.length < this.allIslands.length) {
-            throw new Error("You can only set longer infoArray. >=" + this.allIslands.length);
-        }
         let allIslands = this.allIslands;
+        if (infoArray.length < allIslands.length) {
+            throw new Error("You can only set longer infoArray. >=" + allIslands.length);
+        }
         for (let i = 0; i < infoArray.length; i++) {
             let info = infoArray[i];
             if (i < allIslands.length) {
                 allIslands[i].x = info.x;
                 allIslands[i].y = info.y;
             } else {
-                let newIsland = {};
+                let newIsland = new Island();
+                newIsland.index = i;
                 newIsland.x = info.x;
                 newIsland.y = info.y;
                 allIslands.push(newIsland);
