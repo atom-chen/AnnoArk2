@@ -12,12 +12,9 @@ import IslandInfoFrame from "./UI/IslandInfoFrame";
 import ToastPanel from "./UI/ToastPanel";
 import { SpecialArk } from "./World/SpecialArk";
 import Pirate from "./World/Pirate";
-import WatchPiratePanel from "./UI/WatchPiratePanel";
-import AttackPiratePanel from "./UI/AttackPiratePanel";
 import ArkInWorld from "./World/ArkInWorld";
 import DialogPanel from "./UI/DialogPanel";
-import AttackOtherPanel from "./UI/AttackOtherPanel";
-import WatchOtherPanel from "./UI/WatchOtherPanel";
+import CityInfoPanel from "./UI/CityInfoPanel";
 
 const { ccclass, property } = cc._decorator;
 
@@ -475,11 +472,11 @@ export default class WorldUI extends BaseUI {
         if (this.focusedObjectNode) {
             const city = this.focusedObjectNode.getComponent(ArkInWorld);
             if (city) {
-                CvsMain.OpenPanel(WatchOtherPanel, () => {
-                    WatchOtherPanel.Instance.setAndRefresh(city.data);
+                CvsMain.OpenPanel(CityInfoPanel, () => {
+                    CityInfoPanel.Instance.setAndRefreshUser(city.data, 'watch');
                 });
                 DataMgr.fetchUserDataFromBlockchain(city.data.address, (data) => {
-                    if (WatchOtherPanel.Instance) WatchOtherPanel.Instance.setAndRefresh(data);
+                    if (CityInfoPanel.Instance) CityInfoPanel.Instance.setAndRefreshUser(data, 'watch');
                 });
             }
         }
@@ -491,11 +488,11 @@ export default class WorldUI extends BaseUI {
         if (this.focusedObjectNode) {
             const city = this.focusedObjectNode.getComponent(ArkInWorld);
             if (city) {
-                CvsMain.OpenPanel(AttackOtherPanel, () => {
-                    AttackOtherPanel.Instance.setAndRefresh(city.data);
+                CvsMain.OpenPanel(CityInfoPanel, () => {
+                    CityInfoPanel.Instance.setAndRefreshUser(city.data, 'attack');
                 });
                 DataMgr.fetchUserDataFromBlockchain(city.data.address, (data) => {
-                    if (AttackOtherPanel.Instance) AttackOtherPanel.Instance.setAndRefresh(data);
+                    if (CityInfoPanel.Instance) CityInfoPanel.Instance.setAndRefreshUser(data, 'attack');
                 });
             }
         }
@@ -505,11 +502,11 @@ export default class WorldUI extends BaseUI {
         if (this.focusedObjectNode) {
             const pirate = this.focusedObjectNode.getComponent(Pirate);
             if (pirate) {
-                CvsMain.OpenPanel(WatchPiratePanel, () => {
-                    WatchPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+                CvsMain.OpenPanel(CityInfoPanel, () => {
+                    CityInfoPanel.Instance.setAndRefreshPirate(DataMgr.getPirateData(pirate.index), 'watch');
                 });
                 DataMgr.fetchPirateDataFromBlockchain(pirate.index, (data) => {
-                    if (WatchPiratePanel.Instance) WatchPiratePanel.Instance.setAndRefresh(data);
+                    if (CityInfoPanel.Instance) CityInfoPanel.Instance.setAndRefreshPirate(data, 'watch');
                 });
             }
         }
@@ -518,11 +515,11 @@ export default class WorldUI extends BaseUI {
         if (this.focusedObjectNode) {
             const pirate = this.focusedObjectNode.getComponent(Pirate);
             if (pirate) {
-                CvsMain.OpenPanel(AttackPiratePanel, () => {
-                    AttackPiratePanel.Instance.setAndRefresh(DataMgr.getPirateData(pirate.index));
+                CvsMain.OpenPanel(CityInfoPanel, () => {
+                    CityInfoPanel.Instance.setAndRefreshPirate(DataMgr.getPirateData(pirate.index), 'attack');
                 });
                 DataMgr.fetchPirateDataFromBlockchain(pirate.index, (data) => {
-                    if (AttackPiratePanel.Instance) AttackPiratePanel.Instance.setAndRefresh(data);
+                    if (CityInfoPanel.Instance) CityInfoPanel.Instance.setAndRefreshPirate(data, 'attack');
                 });
             }
         }
