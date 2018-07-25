@@ -14,6 +14,8 @@ export default class WatchOtherPanel extends cc.Component {
     @property(cc.Label)
     lblLv: cc.Label = null;
     @property(cc.Label)
+    lblHull: cc.Label = null;
+    @property(cc.Label)
     lblDefTank: cc.Label = null;
     @property(cc.Label)
     lblDefChopper: cc.Label = null;
@@ -37,6 +39,7 @@ export default class WatchOtherPanel extends cc.Component {
         this.user = user;
         this.lblTitle.string = user.nickname;
         this.lblLv.string = DataMgr.getUserLevel(user).toFixed();
+        this.lblHull.string = (DataMgr.getUserHull(user) * 100).toFixed() + '%';        
 
         let cargoData = DataMgr.getUserCurrentCargoData(user);
         this.lblDefTank.string = (cargoData['tank'] || 0).toFixed();

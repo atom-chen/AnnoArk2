@@ -45,6 +45,10 @@ export class DataMgr {
     static getUserLevel(user) {
         return Math.floor(Math.pow(user.expandCnt, 0.5)) + 1;
     }
+    static getUserHull(user) {
+        let curCityHull = Math.min(1, 1 - (user.healMaxTimestamp - DataMgr.getBlockchainTimestamp()) / 3600e3 * this.damagePerAttackCity);
+        return curCityHull;
+    }
     static getUserCurrentLocation(user) {
         let lastLocation = new cc.Vec2(user.locationData.lastLocationX, user.locationData.lastLocationY);
         if (user.locationData.destinationX == null || user.locationData.destinationY == null) return lastLocation;

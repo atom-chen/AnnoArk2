@@ -52,6 +52,10 @@ export default class CityUI extends BaseUI {
     @property(cc.Node)
     city: cc.Node = null;
 
+    @property(cc.Label)
+    lblLv: cc.Label = null;
+    @property(cc.Label)
+    lblHull: cc.Label = null;
     @property(cc.Node)
     cargoLabelContainer: cc.Node = null;
     @property(cc.Node)
@@ -109,6 +113,12 @@ export default class CityUI extends BaseUI {
             }
             this.cargoLabels[cargoInfo.id].string = str;
         }
+        this.lblLv.string = 'Level ' + DataMgr.getUserLevel(DataMgr.myUser);
+        let hull = DataMgr.getUserHull(DataMgr.myUser);
+        let str = '完整度 ' + (hull * 100).toFixed() + '%';
+        if (hull < 1) str += `(+${(DataMgr.damagePerAttackCity * 100).toFixed()}%/h)`;
+        this.lblHull.string = str;
+        this.lblHull.node.color = hull > 0.3 ? cc.Color.WHITE : cc.Color.RED;
 
         //放大缩小
         let prog = this.sldZoom.progress;

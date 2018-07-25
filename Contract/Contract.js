@@ -761,14 +761,14 @@ GameContract.prototype = {
             }
 
             //方舟受损
-            let curCityHull = Math.min(1, 1 - (user.healMaxTimestamp - curTime) / 3600e3 * this.damagePerAttackCity);
+            let curCityHull = Math.min(1, 1 - (enemy.healMaxTimestamp - curTime) / 3600e3 * this.damagePerAttackCity);
             curCityHull -= this.damagePerAttackCity;
             if (curCityHull > 0) {
                 //未沉没
-                user.healMaxTimestamp = curTime + (1 - curCityHull) / this.damagePerAttackCity * 3600e3;
+                enemy.healMaxTimestamp = curTime + (1 - curCityHull) / this.damagePerAttackCity * 3600e3;
             } else {
                 //沉没了
-                this._cityDestroy(user);
+                this._cityDestroy(enemy);
             }
         } else { //我方进攻失败
             //enemy retrieve army
