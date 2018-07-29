@@ -71,6 +71,8 @@ export default class CityUI extends BaseUI {
     pressingZoomSlider = false;
     zoomScale: number = 1;
 
+    
+
     start() {
         DataMgr.CargoConfig.forEach(cargoInfo => {
             let labelNode = cc.instantiate(this.cargoLabelTemplate);

@@ -50,7 +50,10 @@ export default class Building extends cc.Component {
             }
         }
         this.refresh();
+        
+        this.frmInfo.active = false;
     }
 
-    refresh() { }
+    refresh() {
+    }
 }

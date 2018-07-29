@@ -4,7 +4,6 @@ import ToastPanel from "./UI/ToastPanel";
 import CityUI from "./CityUI";
 import CvsMain from "./CvsMain";
 import HomeUI from "./HomeUI";
-import AttackIslandPanel from "./UI/AttackIslandPanel";
 import MainCtrl from "./MainCtrl";
 import DialogPanel from "./UI/DialogPanel";
 
@@ -47,6 +46,7 @@ export default class BlockchainMgr extends cc.Component {
         this.checkWalletCountdown = 1;
         this.fetchMyDataInterval = 1;
         this.fetchAllDataCountdown = 2;
+
     }
 
     //不断刷新当前钱包地址

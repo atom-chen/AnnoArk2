@@ -1200,9 +1200,9 @@ GameContract.prototype = {
             island.sponsor = userAddress;
             island.money = value;
         } else {
-            island.money = value.plus(island.money);
+            island.money = island.money+island.money;
         }
-        this.totalNas = value.plus(this.totalNas);
+        this.totalNas = this.totalNas.plus(value);
         island.sponsorName = sponsorName;
         island.sponsorLink = link;
         island.sponsorPic = pic;

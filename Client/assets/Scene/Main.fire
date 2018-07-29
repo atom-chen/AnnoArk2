@@ -1250,7 +1250,7 @@
       }
     ],
     "_tag": -1,
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 165
@@ -4173,7 +4173,7 @@
     "_N$file": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
-    "_N$string": "白皮书白皮书",
+    "_N$string": "股权代币方案",
     "_N$horizontalAlign": 1,
     "_N$verticalAlign": 1,
     "_N$fontFamily": "Microsoft Yahei",
@@ -4501,8 +4501,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 80,
-      "height": 30
+      "width": 100,
+      "height": 60
     },
     "_rotationX": 0,
     "_rotationY": 0,
@@ -4536,7 +4536,7 @@
     "_N$file": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
-    "_N$string": "预告预告",
+    "_N$string": "新版交易所\n招募指挥官",
     "_N$horizontalAlign": 1,
     "_N$verticalAlign": 1,
     "_N$fontFamily": "Microsoft Yahei",
@@ -6385,7 +6385,7 @@
       }
     ],
     "_tag": -1,
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 558
@@ -9762,7 +9762,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 210,
+      "width": 120,
       "height": 40
     },
     "_rotationX": 0,
@@ -9829,7 +9829,7 @@
     "_scaleY": 1,
     "_position": {
       "__type__": "cc.Vec2",
-      "x": -92,
+      "x": -47,
       "y": 0.1
     },
     "_skewX": 0,
@@ -9847,7 +9847,9 @@
       "__id__": 253
     },
     "_enabled": true,
-    "_spriteFrame": null,
+    "_spriteFrame": {
+      "__uuid__": "79eba0c4-3f04-416e-9db7-b8f8c7bbda94"
+    },
     "_type": 0,
     "_sizeMode": 0,
     "_fillType": 0,
@@ -9896,7 +9898,7 @@
     "node": {
       "__id__": 253
     },
-    "_enabled": true,
+    "_enabled": false,
     "delay": 0,
     "path": "UI/nebulas_logo"
   },
@@ -9933,7 +9935,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 180,
+      "width": 90,
       "height": 40
     },
     "_rotationX": 0,
@@ -9968,7 +9970,7 @@
     "_N$file": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
-    "_N$string": "星云号现货交易所方舟",
+    "_N$string": "指挥官酒馆",
     "_N$horizontalAlign": 1,
     "_N$verticalAlign": 1,
     "_N$fontFamily": "Microsoft Yahei",
@@ -9984,7 +9986,7 @@
     "_enabled": true,
     "_layoutSize": {
       "__type__": "cc.Size",
-      "width": 210,
+      "width": 120,
       "height": 40
     },
     "_resize": 1,
@@ -10162,7 +10164,7 @@
       }
     ],
     "_tag": -1,
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 281
@@ -10710,7 +10712,7 @@
       }
     ],
     "_tag": -1,
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 297
