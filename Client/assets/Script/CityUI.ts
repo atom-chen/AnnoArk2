@@ -71,7 +71,7 @@ export default class CityUI extends BaseUI {
     pressingZoomSlider = false;
     zoomScale: number = 1;
 
-    
+
 
     start() {
         DataMgr.CargoConfig.forEach(cargoInfo => {
@@ -520,5 +520,12 @@ export default class CityUI extends BaseUI {
 
     onTradeBtnClick() {
         // TransferPanel.Instance.node.active = true;
+    }
+
+    //信息过滤器
+    @property(cc.Toggle)
+    togShowBuildingInfo: cc.Toggle = null;
+    onFilterToggle() {
+        this.refreshAll();
     }
 }
