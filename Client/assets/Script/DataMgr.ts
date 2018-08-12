@@ -75,10 +75,10 @@ export class DataMgr {
         let curMoney = data.money * (isMining ? Math.exp(-data.miningRate * (Number(new Date()) - data.lastMineTime) / (1000 * 3600)) : 1);
         return curMoney;
     }
-    static getBuildingInfo(id: string) {
+    static getBuildingInfo(id: string): BuildingInfo {
         return DataMgr.BuildingConfig.find(info => info.id == id);
     }
-    static getCargoInfo(id: string) {
+    static getCargoInfo(id: string): CargoInfo {
         return DataMgr.CargoConfig.find(info => info.id == id);
     }
     static getCityIJExpanded(user, i, j) {
@@ -221,6 +221,7 @@ export class DataMgr {
         let value = DataMgr.getBuildingInfo(buildingId)[itemName];
         let multi = DataMgr.getBuildingInfo('_upgradeRate')[itemName];
         if (!value) return 0;
+        value = Number(value);
         if (!isNaN(multi) && multi > 0) {
             value = value * Math.pow(multi, lv);
         }

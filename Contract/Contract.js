@@ -471,12 +471,13 @@ GameContract.prototype = {
             }
         }
         //upgrade!
+        let curTime = (new Date()).valueOf();
         building.lv += 1;
 
         let cdMulti = this.allBuildingInfos.get('_upgradeRate').MaxCD;
         let maxCD = info.MaxCD * Math.pow(cdMulti, curLv + 1);
 
-        building.recoverTime = curTime + maxCD / 4;
+        building.recoverTime = curTime + maxCD;
         building.justBuildOrUpgrade = true;
 
         this.allUsers.set(userAddress, user);

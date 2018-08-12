@@ -2063,7 +2063,7 @@
       }
     ],
     "_tag": -1,
-    "_active": false,
+    "_active": true,
     "_components": [],
     "_prefab": {
       "__id__": 85
@@ -2325,9 +2325,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -3689,9 +3689,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -4256,9 +4256,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -4343,9 +4343,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -4562,7 +4562,7 @@
     },
     "_enabled": true,
     "_useOriginalSize": false,
-    "_string": "",
+    "_string": "1",
     "_tabIndex": 0,
     "editingDidBegan": [],
     "textChanged": [],
@@ -4580,9 +4580,9 @@
     "_N$lineHeight": 40,
     "_N$fontColor": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_N$placeholder": "",
@@ -5240,9 +5240,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -5327,9 +5327,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -5546,7 +5546,7 @@
     },
     "_enabled": true,
     "_useOriginalSize": false,
-    "_string": "",
+    "_string": "1",
     "_tabIndex": 0,
     "editingDidBegan": [],
     "textChanged": [],
@@ -5564,9 +5564,9 @@
     "_N$lineHeight": 40,
     "_N$fontColor": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_N$placeholder": "",
@@ -6224,9 +6224,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -6311,9 +6311,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_cascadeOpacityEnabled": true,
@@ -6530,7 +6530,7 @@
     },
     "_enabled": true,
     "_useOriginalSize": false,
-    "_string": "",
+    "_string": "1",
     "_tabIndex": 0,
     "editingDidBegan": [],
     "textChanged": [],
@@ -6548,9 +6548,9 @@
     "_N$lineHeight": 40,
     "_N$fontColor": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 94,
+      "g": 176,
+      "b": 222,
       "a": 255
     },
     "_N$placeholder": "",
