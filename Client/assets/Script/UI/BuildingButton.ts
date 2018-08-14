@@ -4,6 +4,7 @@ import ToastPanel from "./ToastPanel";
 import CvsMain from "../CvsMain";
 import CityUI from "../CityUI";
 import CurrencyFormatter from "../Utils/CurrencyFormatter";
+import BuildingInfoPanel from "./BuildingInfoPanel";
 
 const { ccclass, property } = cc._decorator;
 
@@ -42,8 +43,7 @@ export default class BuildingButton extends cc.Component {
     }
 
     onClick() {
-        // BuildingInfoPanel.Show(this.info);
-        this.onBuildClick();
+        BuildingInfoPanel.Show(this.info);
     }
 
     onBuildClick() {

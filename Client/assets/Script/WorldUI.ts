@@ -326,11 +326,15 @@ export default class WorldUI extends BaseUI {
             this.focusedInfoFrame.active = this.newDestination != null;
             if (this.newDestination) {
                 let pos = DataMgr.getUserCurrentLocation(DataMgr.myUser);
-                let distance = this.newDestination.sub(pos).mag();
+                let displacement = this.newDestination.sub(pos);
+                let distance = displacement.mag();
                 let time = distance / DataMgr.cityMoveSpeed;
                 let ch4 = DataMgr.getSailEnergyCost(DataMgr.myUser, distance);
                 this.lblSelectInfo0.string = `${distance.toFixed()}km`;
                 this.lblSelectInfo1.string = `${time.toFixed()}min\n${ch4.toFixed()}甲烷`;
+                this.sailRouteIndicator.width = distance * this.zoomScale;
+                this.sailRouteIndicator.rotation = 180 - Math.atan2(displacement.y, displacement.x) * 180 / Math.PI;
+                this.focusedInfoFrame.position = this.newDestination.mul(this.zoomScale);
             }
         } else {
             this.grpSail.active = false;
@@ -400,7 +404,7 @@ export default class WorldUI extends BaseUI {
     focusedObjectNode: cc.Node;
     selectObject(node: cc.Node) {
         if (this.editSailDestinationMode) {
-            this.newDestination = node.position.mul(1 / this.zoomScale);
+            this.newDestination = node.position.mul(1 / this.zoomScale).add(new cc.Vec2(10, 10));
             this.sailDestinationIndicator.position = this.newDestination.mul(this.zoomScale);
             this.focusedInfoFrame.position = this.newDestination.mul(this.zoomScale);
         } else {
@@ -472,6 +476,8 @@ export default class WorldUI extends BaseUI {
     grpSail: cc.Node = null;
     @property(cc.Node)
     sailDestinationIndicator: cc.Node = null;
+    @property(cc.Node)
+    sailRouteIndicator: cc.Node = null;
     @property(cc.Node)
     btnCancelSail: cc.Node = null;
     @property(cc.Node)

@@ -49,9 +49,8 @@ export default class Building extends cc.Component {
                 this.sprPic.spriteFrame = null;
             }
         }
+        this.frmInfo.active = CityUI.Instance.togShowBuildingInfo.isChecked;
         this.refresh();
-        
-        this.frmInfo.active = false;
     }
 
     refresh() {
