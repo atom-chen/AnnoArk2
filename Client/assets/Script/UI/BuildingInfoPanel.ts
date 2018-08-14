@@ -1,6 +1,5 @@
 import { BuildingInfo, DataMgr } from "../DataMgr";
 import CvsMain from "../CvsMain";
-import AttackIslandPanel from "./AttackIslandPanel";
 
 const { ccclass, property } = cc._decorator;
 

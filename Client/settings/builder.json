@@ -2,7 +2,10 @@
   "appKey": "",
   "appSecret": "",
   "encryptJs": true,
-  "excludeScenes": [],
+  "excludeScenes": [
+    "ac0fba76-d5d5-4a59-828a-a5b36b542125"
+  ],
+  "fb-instant-games": {},
   "includeAnySDK": false,
   "includeSDKBox": false,
   "inlineSpriteFrames": true,
@@ -20,6 +23,10 @@
   },
   "packageName": "org.cocos2d.helloworld",
   "privateKey": "",
+  "qqplay": {
+    "REMOTE_SERVER_ROOT": "",
+    "orientation": "portrait"
+  },
   "renderMode": "0",
   "startScene": "ebbc6660-735d-48a3-a632-88ebaa1440ac",
   "title": "AnnoArk",
@@ -32,10 +39,5 @@
     "subContext": ""
   },
   "xxteaKey": "068b72d8-e0a9-4a",
-  "zipCompressJs": true,
-  "qqplay": {
-    "orientation": "portrait",
-    "REMOTE_SERVER_ROOT": ""
-  },
-  "fb-instant-games": {}
+  "zipCompressJs": true
 }
